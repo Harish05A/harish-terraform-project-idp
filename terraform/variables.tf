@@ -21,3 +21,9 @@ variable "python_runtime" {
   type        = string
   default     = "python3.12"
 }
+
+variable "alert_email" {
+  description = "Email address to receive frontend downtime alerts. Leave blank to create the alert topic without subscription."
+  type        = string
+  default     = "harish.a@idp.com"
+}

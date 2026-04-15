@@ -68,3 +68,5 @@ resource "aws_s3_object" "index_html" {
 
 # Get current AWS account ID
 data "aws_caller_identity" "current" {}
+
+

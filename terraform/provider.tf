@@ -14,10 +14,6 @@ provider "aws" {
   profile = "idp-sbx-trn-lab-01"  # AWS SSO Profile
 
   default_tags {
-    tags = {
-      Name        = var.project_name
-      Environment = var.environment
-      ManagedBy   = "Terraform"
-    }
+    tags = {}
   }
 }

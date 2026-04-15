@@ -137,3 +137,23 @@ resource "aws_iam_role_policy" "order_lambda_dynamodb" {
   role   = aws_iam_role.order_lambda_role.id
   policy = data.aws_iam_policy_document.order_lambda_dynamodb.json
 }
+
+data "aws_iam_policy_document" "monitor_sns_policy" {
+  statement {
+    effect = "Allow"
+
+    actions = [
+      "sns:Publish"
+    ]
+
+    resources = [
+      aws_sns_topic.frontend_alerts.arn
+    ]
+  }
+}
+
+resource "aws_iam_role_policy" "monitor_sns_policy" {
+  name   = "${var.project_name}-monitor-sns-policy"
+  role   = aws_iam_role.product_lambda_role.id
+  policy = data.aws_iam_policy_document.monitor_sns_policy.json
+}

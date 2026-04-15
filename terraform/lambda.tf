@@ -104,3 +104,28 @@ resource "aws_lambda_function" "order" {
     aws_iam_role_policy.order_lambda_dynamodb
   ]
 }
+
+data "archive_file" "monitoring_lambda_zip" {
+  type        = "zip"
+  source_dir  = "${path.module}/../backend/monitoring"
+  output_path = "${path.module}/../backend/monitoring.zip"
+}
+
+resource "aws_lambda_function" "monitor_lambda" {
+   filename      = data.archive_file.monitoring_lambda_zip.output_path
+  function_name = "${var.project_name}-monitor"
+  source_code_hash = data.archive_file.monitoring_lambda_zip.output_base64sha256
+
+  handler = "lambda_function.lambda_handler"
+  runtime = var.python_runtime
+
+  role = aws_iam_role.product_lambda_role.arn
+
+  environment {
+  variables = {
+    # URL       = "http://wrong-url"
+    URL       = "http://${replace(aws_s3_bucket_website_configuration.frontend.website_endpoint, "http://", "")}"
+    TOPIC_ARN = aws_sns_topic.frontend_alerts.arn
+  }
+}
+}

@@ -137,6 +137,21 @@ output "frontend_url" {
   value       = "http://${aws_s3_bucket_website_configuration.frontend.website_endpoint}"
 }
 
+output "frontend_health_check_id" {
+  description = "Route53 health check ID for frontend availability"
+  value       = aws_route53_health_check.frontend_health_check.id
+}
+
+# output "frontend_alert_topic_arn" {
+#   description = "SNS topic ARN used for frontend downtime alerts"
+#   value       = aws_sns_topic.frontend_alerts.arn
+# }
+
+# output "frontend_downtime_alarm_name" {
+#   description = "CloudWatch alarm name that triggers when the frontend is down"
+#   value       = aws_cloudwatch_metric_alarm.frontend_downtime_alarm.alarm_name
+# }
+
 # =====================
 # Complete System Summary
 # =====================
