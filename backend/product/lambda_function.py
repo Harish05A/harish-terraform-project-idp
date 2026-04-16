@@ -5,9 +5,14 @@ from datetime import datetime
 from decimal import Decimal
 
 # DynamoDB resource
-dynamodb = boto3.resource('dynamodb')
-table_name = os.environ.get('PRODUCTS_TABLE')
-table = dynamodb.Table(table_name)
+
+# table_name = os.environ.get('PRODUCTS_TABLE')
+def get_table():
+    dynamodb = dynamodb = boto3.resource(
+        'dynamodb',
+        region_name=os.environ.get('AWS_REGION', 'ap-southeast-1'))
+    return dynamodb.Table(os.environ.get('PRODUCTS_TABLE'))
+
 
 def lambda_handler(event, context):
     """
@@ -52,6 +57,7 @@ def lambda_handler(event, context):
 def get_all_products():
     """Fetch all products from DynamoDB"""
     try:
+        table = get_table()
         response = table.scan()
         products = response.get('Items', [])
 
@@ -95,6 +101,7 @@ def create_product(body):
             'created_at': datetime.now().isoformat(),
             'updated_at': datetime.now().isoformat()
         }
+        table = get_table()
 
         table.put_item(Item=product)
 
@@ -113,6 +120,7 @@ def create_product(body):
 def update_product(product_id, body):
     """Update an existing product"""
     try:
+        table = get_table()
         # Check if product exists
         response = table.get_item(Key={'product_id': product_id})
         if 'Item' not in response:
@@ -160,6 +168,8 @@ def update_product(product_id, body):
 def delete_product(product_id):
     """Delete a product"""
     try:
+        table = get_table()
+
         # Check if product exists
         response = table.get_item(Key={'product_id': product_id})
         if 'Item' not in response:
@@ -190,3 +200,4 @@ def error_response(status_code, message):
         'headers': {'Content-Type': 'application/json'},
         'body': json.dumps({'error': message})
     }
+

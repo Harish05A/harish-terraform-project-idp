@@ -5,12 +5,20 @@ from datetime import datetime
 from decimal import Decimal
 
 # DynamoDB client
-dynamodb = boto3.resource('dynamodb')
-carts_table_name = os.environ.get('CARTS_TABLE')
-products_table_name = os.environ.get('PRODUCTS_TABLE')
+def get_carts_table():
+    dynamodb = boto3.resource(
+        'dynamodb',
+        region_name=os.environ.get('AWS_REGION', 'ap-southeast-1')
+    )
+    return dynamodb.Table(os.environ.get('CARTS_TABLE'))
 
-carts_table = dynamodb.Table(carts_table_name)
-products_table = dynamodb.Table(products_table_name)
+
+def get_products_table():
+    dynamodb = boto3.resource(
+        'dynamodb',
+        region_name=os.environ.get('AWS_REGION', 'ap-southeast-1')
+    )
+    return dynamodb.Table(os.environ.get('PRODUCTS_TABLE'))
 
 def lambda_handler(event, context):
     """
@@ -68,6 +76,8 @@ def add_to_cart(body):
             return error_response(400, f"Missing required field: {field}")
 
     try:
+        carts_table = get_carts_table()
+        products_table = get_products_table()   
         user_id = str(body['user_id'])
         product_id = str(body['product_id'])
         quantity = int(body['quantity'])
@@ -120,6 +130,7 @@ def add_to_cart(body):
 def get_cart(user_id):
     """Get user's cart"""
     try:
+        carts_table = get_carts_table()
         response = carts_table.get_item(Key={'user_id': user_id})
 
         if 'Item' not in response:
@@ -143,6 +154,8 @@ def get_cart(user_id):
 def update_cart_item(user_id, product_id, body):
     """Update quantity of item in cart"""
     try:
+        carts_table = get_carts_table()
+        products_table = get_products_table()
         quantity = int(body.get('quantity', 0))
 
         if quantity <= 0:
@@ -188,6 +201,8 @@ def update_cart_item(user_id, product_id, body):
 def remove_from_cart(user_id, product_id):
     """Remove item from cart"""
     try:
+        carts_table = get_carts_table()
+        # products_table = get_products_table()
         response = carts_table.get_item(Key={'user_id': user_id})
         if 'Item' not in response:
             return error_response(404, "Cart not found")
@@ -224,6 +239,7 @@ def remove_from_cart(user_id, product_id):
 def clear_cart(user_id):
     """Clear entire cart"""
     try:
+        carts_table = get_carts_table()
         carts_table.delete_item(Key={'user_id': user_id})
 
         return success_response(200, {

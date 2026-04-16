@@ -6,12 +6,20 @@ from datetime import datetime, timedelta
 from decimal import Decimal
 
 # DynamoDB client
-dynamodb = boto3.resource('dynamodb')
-orders_table_name = os.environ.get('ORDERS_TABLE')
-carts_table_name = os.environ.get('CARTS_TABLE')
+def get_orders_table():
+    dynamodb = boto3.resource(
+        'dynamodb',
+        region_name=os.environ.get('AWS_REGION', 'ap-southeast-1')
+    )
+    return dynamodb.Table(os.environ.get('ORDERS_TABLE'))
 
-orders_table = dynamodb.Table(orders_table_name)
-carts_table = dynamodb.Table(carts_table_name)
+
+def get_carts_table():
+    dynamodb = boto3.resource(
+        'dynamodb',
+        region_name=os.environ.get('AWS_REGION', 'ap-southeast-1')
+    )
+    return dynamodb.Table(os.environ.get('CARTS_TABLE'))
 
 def lambda_handler(event, context):
     """
@@ -64,6 +72,7 @@ def create_order(body):
         user_id = str(body['user_id'])
 
         # Get user's cart
+        carts_table = get_carts_table()
         cart_response = carts_table.get_item(Key={'user_id': user_id})
         if 'Item' not in cart_response or not cart_response['Item'].get('items'):
             return error_response(400, "Cart is empty")
@@ -89,9 +98,11 @@ def create_order(body):
         }
 
         # Save order
+        orders_table = get_orders_table()
         orders_table.put_item(Item=order)
 
         # Clear user's cart
+        carts_table = get_carts_table()
         carts_table.delete_item(Key={'user_id': user_id})
 
         return success_response(201, {
@@ -107,6 +118,7 @@ def create_order(body):
 def get_order(order_id):
     """Get order details"""
     try:
+        orders_table = get_orders_table()
         response = orders_table.get_item(Key={'order_id': order_id})
 
         if 'Item' not in response:
@@ -126,6 +138,7 @@ def get_order(order_id):
 def get_user_orders(user_id):
     """Get all orders for a user"""
     try:
+        orders_table = get_orders_table()
         response = orders_table.scan(
             FilterExpression='user_id = :user_id',
             ExpressionAttributeValues={':user_id': user_id}
@@ -149,6 +162,8 @@ def get_user_orders(user_id):
 def cancel_order(order_id):
     """Cancel an order"""
     try:
+        orders_table = get_orders_table()
+
         response = orders_table.get_item(Key={'order_id': order_id})
 
         if 'Item' not in response:
