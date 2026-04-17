@@ -30,23 +30,22 @@ It includes:
 - Added unit test files for the product, cart, and order Lambda functions
 
 ## Architecture Diagram
-```mermaid
 flowchart TD
 
 %% User
 U[User Browser]
 
 %% Frontend
-FE[S3 Static Website\nHTML/CSS/JS]
+FE["S3 Static Website (HTML/CSS/JS)"]
 
 %% API Gateway
-APIGW[API Gateway\nHTTP API]
+APIGW[API Gateway HTTP API]
 
 %% Lambda Services
-P[harish-tf-product (Lambda)]
-C[harish-tf-cart (Lambda)]
-O[harish-tf-order (Lambda)]
-M[harish-tf-monitoring (Lambda)]
+P["harish-tf-product (Lambda)"]
+C["harish-tf-cart (Lambda)"]
+O["harish-tf-order (Lambda)"]
+M["harish-tf-monitoring (Lambda)"]
 
 %% Database
 D1[(DynamoDB - Products Table)]
@@ -76,7 +75,6 @@ R53 --> SNS
 SNS --> ALERT
 
 M --> SNS
-```
 
 ### Architecture Summary
 - Frontend is hosted on S3 as a static website
