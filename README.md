@@ -29,6 +29,63 @@ It includes:
 - Defined Terraform outputs for API URL, frontend URL, table names, and Lambda details
 - Added unit test files for the product, cart, and order Lambda functions
 
+## Architecture Diagram
+```mermaid
+flowchart TD
+
+%% User
+U[User Browser]
+
+%% Frontend
+FE[S3 Static Website\nHTML/CSS/JS]
+
+%% API Gateway
+APIGW[API Gateway\nHTTP API]
+
+%% Lambda Services
+P[harish-tf-product (Lambda)]
+C[harish-tf-cart (Lambda)]
+O[harish-tf-order (Lambda)]
+M[harish-tf-monitoring (Lambda)]
+
+%% Database
+D1[(DynamoDB - Products Table)]
+D2[(DynamoDB - Carts Table)]
+D3[(DynamoDB - Orders Table)]
+
+%% Monitoring
+R53[Route 53 Health Check]
+SNS[SNS Topic]
+ALERT[Email / SMS Alerts]
+
+%% Flow
+U --> FE
+FE --> APIGW
+
+APIGW --> P
+APIGW --> C
+APIGW --> O
+
+P --> D1
+C --> D2
+O --> D3
+
+%% Monitoring Flow
+R53 --> FE
+R53 --> SNS
+SNS --> ALERT
+
+M --> SNS
+```
+
+### Architecture Summary
+- Frontend is hosted on S3 as a static website
+- API Gateway exposes REST endpoints
+- Lambda functions handle business logic (Product, Cart, Order)
+- DynamoDB stores application data
+- Route 53 monitors frontend health
+- SNS sends alerts when downtime is detected
+- Monitoring Lambda can trigger alerts manually or on schedule
 ## Services Implemented
 
 ### Backend
