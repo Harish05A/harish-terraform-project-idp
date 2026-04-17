@@ -30,51 +30,54 @@ It includes:
 - Added unit test files for the product, cart, and order Lambda functions
 
 ## Architecture Diagram
+```mermaid
 flowchart TD
+    %% Styling
+    classDef aws fill:#f9f,stroke:#333,stroke-width:2px;
+    classDef db fill:#fff2cc,stroke:#d6b656,stroke-width:2px;
 
-%% User
-U[User Browser]
+    %% User
+    U[User Browser]
 
-%% Frontend
-FE["S3 Static Website (HTML/CSS/JS)"]
+    %% Frontend
+    FE["S3 Static Website (HTML/CSS/JS)"]
 
-%% API Gateway
-APIGW[API Gateway HTTP API]
+    %% API Gateway
+    APIGW[API Gateway HTTP API]
 
-%% Lambda Services
-P["harish-tf-product (Lambda)"]
-C["harish-tf-cart (Lambda)"]
-O["harish-tf-order (Lambda)"]
-M["harish-tf-monitoring (Lambda)"]
+    %% Lambda Services
+    P["harish-tf-product (Lambda)"]
+    C["harish-tf-cart (Lambda)"]
+    O["harish-tf-order (Lambda)"]
+    M["harish-tf-monitoring (Lambda)"]
 
-%% Database
-D1[(DynamoDB - Products Table)]
-D2[(DynamoDB - Carts Table)]
-D3[(DynamoDB - Orders Table)]
+    %% Database
+    D1[(DynamoDB - Products Table)]:::db
+    D2[(DynamoDB - Carts Table)]:::db
+    D3[(DynamoDB - Orders Table)]:::db
 
-%% Monitoring
-R53[Route 53 Health Check]
-SNS[SNS Topic]
-ALERT[Email / SMS Alerts]
+    %% Monitoring
+    R53[Route 53 Health Check]
+    SNS[SNS Topic]
+    ALERT[Email / SMS Alerts]
 
-%% Flow
-U --> FE
-FE --> APIGW
+    %% Flow
+    U --> FE
+    FE --> APIGW
+    APIGW --> P
+    APIGW --> C
+    APIGW --> O
 
-APIGW --> P
-APIGW --> C
-APIGW --> O
+    P --> D1
+    C --> D2
+    O --> D3
 
-P --> D1
-C --> D2
-O --> D3
-
-%% Monitoring Flow
-R53 --> FE
-R53 --> SNS
-SNS --> ALERT
-
-M --> SNS
+    %% Monitoring Flow
+    R53 --> FE
+    R53 --> SNS
+    SNS --> ALERT
+    M --> SNS
+```
 
 ### Architecture Summary
 - Frontend is hosted on S3 as a static website
