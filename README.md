@@ -32,9 +32,6 @@ It includes:
 ## Architecture Diagram
 ```mermaid
 flowchart TD
-    %% Styling
-    classDef aws fill:#f9f,stroke:#333,stroke-width:2px;
-    classDef db fill:#fff2cc,stroke:#d6b656,stroke-width:2px;
 
     %% User
     U[User Browser]
@@ -52,9 +49,9 @@ flowchart TD
     M["harish-tf-monitoring (Lambda)"]
 
     %% Database
-    D1[(DynamoDB - Products Table)]:::db
-    D2[(DynamoDB - Carts Table)]:::db
-    D3[(DynamoDB - Orders Table)]:::db
+    D1[(DynamoDB - Products Table)]
+    D2[(DynamoDB - Carts Table)]
+    D3[(DynamoDB - Orders Table)]
 
     %% Monitoring
     R53[Route 53 Health Check]
