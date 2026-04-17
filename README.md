@@ -1,105 +1,98 @@
-# Harish's Serverless E-Commerce Platform with Terraform
+# Serverless E-Commerce Platform with Terraform
 
 ## Project Overview
-A beginner-friendly, low-cost serverless e-commerce system built with AWS and Terraform.
+This project is a simple serverless e-commerce application built with AWS and Terraform.
 
-**Naming Convention:** All resources follow `harish-tf-<resource-name>`
+It includes:
+- Terraform infrastructure setup
+- Python Lambda functions for product, cart, order, and monitoring flows
+- DynamoDB tables for products, carts, and orders
+- HTTP API Gateway routes
+- Static frontend hosted on S3
+- Basic frontend availability monitoring with Route 53 health check and SNS alerts
 
-## Folder Structure
-```
+## What I Have Done
+- Configured the AWS provider, variables, and Terraform project structure
+- Created IAM roles and policies for Lambda execution and DynamoDB access
+- Built 3 main backend services using Python Lambda:
+  - Product service for create, list, update, and delete
+  - Cart service for add, view, update, remove, and clear cart
+  - Order service for create, fetch, list by user, and cancel order
+- Added a monitoring Lambda that sends an SNS alert if the frontend is not reachable
+- Created DynamoDB tables for products, carts, and orders
+- Added an order table secondary index for querying orders by user
+- Configured HTTP API Gateway with routes for product, cart, and order operations
+- Added Lambda permissions for API Gateway invocation
+- Created an S3 bucket for static website hosting
+- Uploaded the frontend application through Terraform
+- Added Route 53 health check and SNS topic/subscription for frontend alerts
+- Defined Terraform outputs for API URL, frontend URL, table names, and Lambda details
+- Added unit test files for the product, cart, and order Lambda functions
+
+## Services Implemented
+
+### Backend
+- `product` Lambda
+- `cart` Lambda
+- `order` Lambda
+- `monitoring` Lambda
+
+### Database
+- `harish-tf-products`
+- `harish-tf-carts`
+- `harish-tf-orders`
+
+### API Routes
+- `GET /product`
+- `POST /product`
+- `PUT /product/{id}`
+- `DELETE /product/{id}`
+- `GET /cart/{user_id}`
+- `POST /cart`
+- `PUT /cart/{user_id}/{product_id}`
+- `DELETE /cart/{user_id}/{product_id}`
+- `DELETE /cart/{user_id}`
+- `GET /order/{order_id}`
+- `GET /order/user/{user_id}`
+- `POST /order`
+- `DELETE /order/{order_id}`
+
+## Frontend
+The frontend is a static HTML application hosted on S3.
+
+It includes:
+- Product listing
+- Add product form
+- Cart view
+- Checkout form
+- Order history view
+
+## Project Structure
+```text
 harish-terraform-project/
-├── terraform/              # All Terraform config files
-│   ├── provider.tf        # AWS provider setup
-│   ├── variables.tf       # Input variables
-│   ├── iam.tf            # IAM roles and policies
-│   ├── lambda.tf         # Lambda function definitions
-│   ├── dynamodb.tf       # DynamoDB table definitions
-│   ├── apigateway.tf     # API Gateway setup
-│   ├── s3.tf             # S3 bucket for frontend
-│   ├── outputs.tf        # Output values
-│   ├── terraform.tfvars  # Variable values
-│   └── .gitignore        # Ignore sensitive files
-├── backend/              # Python Lambda functions
-│   ├── product/          # Product service code
-│   ├── cart/             # Cart service code
-│   └── order/            # Order service code
-└── frontend/             # HTML/CSS/JS frontend
-    └── index.html        # Main e-commerce page
+|-- terraform/   # Infrastructure code
+|-- backend/     # Lambda functions and tests
+|-- frontend/    # Static frontend
+|-- QUICK_START.md
+|-- SYSTEM_GUIDE.md
+`-- DEPLOYMENT_SUMMARY.md
 ```
 
-## Implementation Steps
+## How to Run
+```bash
+cd terraform
+terraform init
+terraform plan
+terraform apply
+```
 
-### Step 1: Provider + Variables ✅ DONE
-- Configure AWS provider
-- Define input variables
-- Create terraform.tfvars
+## Links
+- ApiGateway URL - "https://490z9zcjr8.execute-api.ap-southeast-1.amazonaws.com/"
+- Frontend URL - "http://harish-tf-frontend-726101441380.s3-website-ap-southeast-1.amazonaws.com"
 
-### Step 2: Product Lambda Service (NEXT)
-- Create IAM role for Lambda
-- Create Product Lambda function
-- Zip Python code automatically with archive_file
-
-### Step 3: DynamoDB Tables
-- Create Product DynamoDB table (PAY_PER_REQUEST)
-- Create Cart DynamoDB table
-- Create Order DynamoDB table
-
-### Step 4: API Gateway Setup
-- Create HTTP API Gateway
-- Create routes: /product, /cart, /order
-- Integrate with Lambda functions
-
-### Step 5: Cart & Order Services
-- Build Cart Lambda service
-- Build Order Lambda service
-- Deploy to API Gateway
-
-### Step 6: Frontend & S3
-- Create simple HTML e-commerce page
-- Upload to S3
-- Enable public access
-
-## How to Use
-
-1. **Navigate to Terraform directory:**
-   ```bash
-   cd terraform
-   ```
-
-2. **Initialize Terraform:**
-   ```bash
-   terraform init
-   ```
-
-3. **Review changes:**
-   ```bash
-   terraform plan
-   ```
-
-4. **Deploy infrastructure:**
-   ```bash
-   terraform apply
-   ```
-
-5. **Get outputs:**
-   ```bash
-   terraform output
-   ```
-
-## Cost Optimization
-- DynamoDB: PAY_PER_REQUEST (pay only for usage)
-- Lambda: Free tier (1M requests/month)
-- API Gateway: Free tier (1M requests/month)
-- S3: Minimal storage cost (~$0.023/GB)
-
-## Architecture
-- **Frontend:** Static HTML in S3
-- **API:** HTTP API Gateway (apigatewayv2)
-- **Backend:** Python 3.12 Lambda functions
-- **Database:** DynamoDB tables (one per service)
-- **Authentication:** None (open API for simplicity)
-
-## Next Steps
-Ready to proceed to **Step 2: Product Lambda Service**?
-
-Run `terraform plan` to validate Step 1 setup first!
+## Notes
+- AWS region is set to `ap-southeast-1`
+- Python runtime is `python3.14`
+- Resource naming uses the `harish-tf` prefix
+- Unit test files are present in the backend folders
+- I could not run `pytest` in this environment because `pytest` is not installed

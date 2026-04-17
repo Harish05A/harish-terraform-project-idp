@@ -5,6 +5,9 @@ import uuid
 from datetime import datetime, timedelta
 from decimal import Decimal
 
+sns = boto3.client('sns')
+SNS_TOPIC_ARN =os.environ['TOPIC_ARN']
+
 # DynamoDB client
 def get_orders_table():
     dynamodb = boto3.resource(
@@ -57,8 +60,17 @@ def lambda_handler(event, context):
 
     except Exception as e:
         print(f"Error: {str(e)}")
-        return error_response(500, f"Internal server error: {str(e)}")
 
+        try:
+            sns.publish(
+                TopicArn=SNS_TOPIC_ARN,
+                Subject="Order Service Error",
+                Message=f"Error occurred in Order Service:\n\n{str(e)}"
+            )
+        except Exception as sns_error:
+            print(f"SNS Error: {str(sns_error)}")
+
+        return error_response(500, f"Internal server error: {str(e)}")
 
 def create_order(body):
     """Create order from cart"""
@@ -104,6 +116,27 @@ def create_order(body):
         # Clear user's cart
         carts_table = get_carts_table()
         carts_table.delete_item(Key={'user_id': user_id})
+
+        # After order is successfully saved
+
+        sns.publish(
+            TopicArn=SNS_TOPIC_ARN,
+            Subject="Order Confirmation",
+            Message=f"""
+                Order placed successfully!
+
+                Order ID: {order_id}
+                User ID: {user_id}
+                Total Items: {cart['total_items']}
+                Total Price: {cart['total_price']}
+
+                Shipping Address:
+                {body['shipping_address']}
+
+                Estimated Delivery:
+                {order['estimated_delivery']}
+                """
+        )
 
         return success_response(201, {
             'message': 'Order created successfully',

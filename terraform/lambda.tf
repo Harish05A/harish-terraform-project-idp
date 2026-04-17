@@ -94,6 +94,7 @@ resource "aws_lambda_function" "order" {
     variables = {
       ORDERS_TABLE = "${var.project_name}-orders"
       CARTS_TABLE  = "${var.project_name}-carts"
+      SNS_TOPIC_ARN = aws_sns_topic.frontend_alerts.arn
     }
   }
 

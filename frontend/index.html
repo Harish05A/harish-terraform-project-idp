@@ -1072,6 +1072,7 @@
                 };
             }
             saveCart();
+            saveCartToBackend();
             updateCartUI();
             showSuccess(`${productName} added to cart!`);
             setTimeout(() => switchTab('cart'), 1000);
@@ -1080,6 +1081,33 @@
         function saveCart() {
             localStorage.setItem('cart', JSON.stringify(cart));
         }
+
+        async function saveCartToBackend() {
+    const userId = 'user-123';
+
+    const items = Object.values(cart).map(item => ({
+        product_id: item.product_id,
+        name: item.product_name,
+        price: item.unit_price,
+        quantity: item.quantity
+    }));
+
+    const total_items = items.reduce((sum, i) => sum + i.quantity, 0);
+    const total_price = items.reduce((sum, i) => sum + (i.price * i.quantity), 0);
+
+    await fetch(API_BASE_URL + '/cart/', {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+            user_id: userId,
+            items,
+            total_items,
+            total_price
+        })
+    });
+}
 
         function loadCart() {
             const saved = localStorage.getItem('cart');
@@ -1171,7 +1199,7 @@
                     switchTab('orders');
                     setTimeout(() => loadUserOrders(), 1000);
                 } catch (error) {
-                    showError('Failed to place order');
+                    showError(error.message || 'Failed to place order. Please try again.');
                 }
             });
         }
