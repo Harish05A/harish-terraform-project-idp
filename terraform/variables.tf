@@ -19,7 +19,7 @@ variable "environment" {
 variable "python_runtime" {
   description = "Python runtime for Lambda functions"
   type        = string
-  default     = "python3.12"
+  default     = "python3.13"
 }
 
 variable "alert_email" {

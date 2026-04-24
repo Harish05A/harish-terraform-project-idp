@@ -4,21 +4,83 @@ import os
 from datetime import datetime
 from decimal import Decimal
 
+def decimal_default(obj):
+    """Handle Decimal serialization for JSON"""
+    if isinstance(obj, Decimal):
+        if obj % 1 == 0:
+            return int(obj)
+        return float(obj)
+    raise TypeError
+
 # DynamoDB client
 def get_carts_table():
     dynamodb = boto3.resource(
         'dynamodb',
-        region_name=os.environ.get('AWS_REGION', 'ap-southeast-1')
+        region_name=os.environ.get('REGION_NAME', 'ap-southeast-1')
     )
-    return dynamodb.Table(os.environ.get('CARTS_TABLE'))
+    table_name = os.environ.get('CARTS_TABLE', 'harish-tf-carts')
+    return dynamodb.Table(table_name)
 
 
 def get_products_table():
     dynamodb = boto3.resource(
         'dynamodb',
-        region_name=os.environ.get('AWS_REGION', 'ap-southeast-1')
+        region_name=os.environ.get('REGION_NAME', 'ap-southeast-1')
     )
-    return dynamodb.Table(os.environ.get('PRODUCTS_TABLE'))
+    table_name = os.environ.get('PRODUCTS_TABLE', 'harish-tf-products')
+    return dynamodb.Table(table_name)
+
+
+def build_cart_payload(user_id, cart, message):
+    return {
+        'message': message,
+        'data': {
+            'user_id': user_id,
+            'items': cart.get('items', {}),
+            'total_items': cart.get('total_items', 0),
+            'total_price': cart.get('total_price', 0),
+            'created_at': cart.get('created_at'),
+            'updated_at': cart.get('updated_at')
+        }
+    }
+
+
+def normalize_cart_items(items):
+    """Accept cart items stored as a mapping or a list and normalize to a mapping."""
+    if isinstance(items, dict):
+        return items
+
+    if not isinstance(items, list):
+        raise ValueError("Cart items must be an object or list")
+
+    normalized_items = {}
+    for item in items:
+        product_id = str(item.get('product_id', item.get('product')))
+        if not product_id or product_id == 'None':
+            raise ValueError("Cart item is missing product_id")
+
+        quantity = int(item.get('quantity', 0))
+        unit_price = Decimal(str(item.get('unit_price', item.get('price', 0))))
+        total_price = Decimal(str(item.get('total_price', unit_price * quantity)))
+
+        normalized_items[product_id] = {
+            'product_id': product_id,
+            'product_name': item.get('product_name', item.get('product', product_id)),
+            'unit_price': unit_price,
+            'quantity': quantity,
+            'total_price': total_price
+        }
+
+    return normalized_items
+
+
+def normalize_cart(cart, user_id):
+    normalized_cart = dict(cart)
+    normalized_cart['user_id'] = user_id
+    normalized_cart['items'] = normalize_cart_items(cart.get('items', {}))
+    normalized_cart['created_at'] = cart.get('created_at')
+    normalized_cart['updated_at'] = cart.get('updated_at')
+    return normalized_cart
 
 def lambda_handler(event, context):
     """
@@ -100,14 +162,15 @@ def add_to_cart(body):
             'created_at': datetime.now().isoformat(),
             'updated_at': datetime.now().isoformat()
         })
+        cart = normalize_cart(cart, user_id)
 
         # Add or update item in cart
         cart['items'][product_id] = {
             'product_id': product_id,
             'product_name': product['name'],
-            'unit_price': product['price'],
+            'unit_price': product['price'],  # Keep as Decimal
             'quantity': quantity,
-            'total_price': product['price'] * quantity
+            'total_price': product['price'] * quantity  # Keep as Decimal
         }
 
         cart['updated_at'] = datetime.now().isoformat()
@@ -140,12 +203,13 @@ def get_cart(user_id):
                 'items': {},
                 'total_items': 0,
                 'total_price': 0,
-                'message': 'Cart is empty'
+                'created_at': None,
+                'updated_at': None
             }
-            return success_response(200, empty_cart)
+            return success_response(200, build_cart_payload(user_id, empty_cart, 'Cart is empty'))
 
-        cart = response['Item']
-        return success_response(200, cart)
+        cart = normalize_cart(response['Item'], user_id)
+        return success_response(200, build_cart_payload(user_id, cart, f"Retrieved cart for {user_id}"))
 
     except Exception as e:
         return error_response(500, f"Failed to retrieve cart: {str(e)}")
@@ -166,7 +230,7 @@ def update_cart_item(user_id, product_id, body):
         if 'Item' not in response:
             return error_response(404, "Cart not found")
 
-        cart = response['Item']
+        cart = normalize_cart(response['Item'], user_id)
 
         if product_id not in cart['items']:
             return error_response(404, f"Product not in cart")
@@ -207,7 +271,7 @@ def remove_from_cart(user_id, product_id):
         if 'Item' not in response:
             return error_response(404, "Cart not found")
 
-        cart = response['Item']
+        cart = normalize_cart(response['Item'], user_id)
 
         if product_id not in cart['items']:
             return error_response(404, f"Product not in cart")
@@ -256,7 +320,7 @@ def success_response(status_code, data):
     return {
         'statusCode': status_code,
         'headers': {'Content-Type': 'application/json'},
-        'body': json.dumps(data, default=str)
+        'body': json.dumps(data, default=decimal_default)
     }
 
 

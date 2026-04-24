@@ -15,7 +15,15 @@ def test_create_order_success(monkeypatch):
     fake_carts.get_item.return_value = {
         "Item": {
             "user_id": "1",
-            "items": [{"product": "Phone"}],
+            "items": {
+                "p1": {
+                    "product_id": "p1",
+                    "product_name": "Phone",
+                    "unit_price": 1000,
+                    "quantity": 1,
+                    "total_price": 1000
+                }
+            },
             "total_items": 1,
             "total_price": 1000
         }
@@ -41,6 +49,45 @@ def test_create_order_success(monkeypatch):
 
     fake_orders.put_item.assert_called_once()
     fake_carts.delete_item.assert_called_once()
+
+
+def test_create_order_accepts_legacy_list_cart_items(monkeypatch):
+    fake_orders = MagicMock()
+    fake_carts = MagicMock()
+
+    fake_carts.get_item.return_value = {
+        "Item": {
+            "user_id": "1",
+            "items": [
+                {
+                    "product_id": "p1",
+                    "product": "Phone",
+                    "price": 1000,
+                    "quantity": 1
+                }
+            ],
+            "total_items": 1,
+            "total_price": 1000
+        }
+    }
+
+    monkeypatch.setattr(lf, "get_orders_table", lambda: fake_orders)
+    monkeypatch.setattr(lf, "get_carts_table", lambda: fake_carts)
+
+    event = {
+        "requestContext": {"http": {"method": "POST"}},
+        "body": json.dumps({
+            "user_id": "1",
+            "shipping_address": "Chennai",
+            "email": "test@mail.com"
+        })
+    }
+
+    response = lf.lambda_handler(event, None)
+    body = json.loads(response['body'])
+
+    assert response['statusCode'] == 201
+    assert body['data']['items']['p1']['product_name'] == "Phone"
 
 
 # ------------------------

@@ -5,7 +5,7 @@
 resource "aws_route53_health_check" "frontend_health_check" {
   failure_threshold             = 2
   request_interval              = 30
-  resource_path                 = "/"
+  resource_path                 = "/error"
   fqdn = replace(
   aws_s3_bucket_website_configuration.frontend.website_endpoint,
   "http://",

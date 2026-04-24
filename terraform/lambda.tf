@@ -7,6 +7,7 @@ data "archive_file" "product_lambda_zip" {
   type        = "zip"
   source_dir  = "${path.module}/../backend/product"
   output_path = "${path.module}/../backend/product.zip"
+  excludes    = [".pytest_cache/*", "__pycache__/*"]
 }
 
 # Product Lambda Function
@@ -21,6 +22,7 @@ resource "aws_lambda_function" "product" {
 
   environment {
     variables = {
+      REGION_NAME = var.aws_region
       PRODUCTS_TABLE = "${var.project_name}-products"
     }
   }
@@ -42,6 +44,7 @@ data "archive_file" "cart_lambda_zip" {
   type        = "zip"
   source_dir  = "${path.module}/../backend/cart"
   output_path = "${path.module}/../backend/cart.zip"
+  excludes    = [".pytest_cache/*", "__pycache__/*"]
 }
 
 # Cart Lambda Function
@@ -56,6 +59,7 @@ resource "aws_lambda_function" "cart" {
 
   environment {
     variables = {
+      REGION_NAME = var.aws_region
       CARTS_TABLE    = "${var.project_name}-carts"
       PRODUCTS_TABLE = "${var.project_name}-products"
     }
@@ -78,6 +82,7 @@ data "archive_file" "order_lambda_zip" {
   type        = "zip"
   source_dir  = "${path.module}/../backend/order"
   output_path = "${path.module}/../backend/order.zip"
+  excludes    = [".pytest_cache/*", "__pycache__/*"]
 }
 
 # Order Lambda Function
@@ -92,9 +97,10 @@ resource "aws_lambda_function" "order" {
 
   environment {
     variables = {
+      REGION_NAME = var.aws_region
       ORDERS_TABLE = "${var.project_name}-orders"
       CARTS_TABLE  = "${var.project_name}-carts"
-      SNS_TOPIC_ARN = aws_sns_topic.frontend_alerts.arn
+      TOPIC_ARN  = aws_sns_topic.frontend_alerts.arn
     }
   }
 
@@ -110,6 +116,7 @@ data "archive_file" "monitoring_lambda_zip" {
   type        = "zip"
   source_dir  = "${path.module}/../backend/monitoring"
   output_path = "${path.module}/../backend/monitoring.zip"
+  excludes    = [".pytest_cache/*", "__pycache__/*"]
 }
 
 resource "aws_lambda_function" "monitor_lambda" {
@@ -124,6 +131,7 @@ resource "aws_lambda_function" "monitor_lambda" {
 
   environment {
   variables = {
+    REGION_NAME = var.aws_region
     # URL       = "http://wrong-url"
     URL       = "http://${replace(aws_s3_bucket_website_configuration.frontend.website_endpoint, "http://", "")}"
     TOPIC_ARN = aws_sns_topic.frontend_alerts.arn

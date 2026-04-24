@@ -5,24 +5,85 @@ import uuid
 from datetime import datetime, timedelta
 from decimal import Decimal
 
-sns = boto3.client('sns')
-SNS_TOPIC_ARN =os.environ['TOPIC_ARN']
+def decimal_default(obj):
+    """Handle Decimal serialization for JSON"""
+    if isinstance(obj, Decimal):
+        if obj % 1 == 0:
+            return int(obj)
+        return float(obj)
+    raise TypeError
+
+def get_sns_topic_arn():
+    return os.environ.get('TOPIC_ARN', '')
+
+
+def publish_sns(subject, message):
+    """Publish to SNS only when a topic is configured."""
+    topic_arn = get_sns_topic_arn()
+    if not topic_arn:
+        return
+
+    try:
+        sns = boto3.client(
+            'sns',
+            region_name=os.environ.get('REGION_NAME', 'ap-southeast-1')
+        )
+        sns.publish(TopicArn=topic_arn, Subject=subject, Message=message)
+    except Exception as sns_error:
+        print(f"SNS Error: {str(sns_error)}")
 
 # DynamoDB client
 def get_orders_table():
     dynamodb = boto3.resource(
         'dynamodb',
-        region_name=os.environ.get('AWS_REGION', 'ap-southeast-1')
+        region_name=os.environ.get('REGION_NAME', 'ap-southeast-1')
     )
-    return dynamodb.Table(os.environ.get('ORDERS_TABLE'))
+    table_name = os.environ.get('ORDERS_TABLE', 'harish-tf-orders')
+    return dynamodb.Table(table_name)
 
 
 def get_carts_table():
     dynamodb = boto3.resource(
         'dynamodb',
-        region_name=os.environ.get('AWS_REGION', 'ap-southeast-1')
+        region_name=os.environ.get('REGION_NAME', 'ap-southeast-1')
     )
-    return dynamodb.Table(os.environ.get('CARTS_TABLE'))
+    table_name = os.environ.get('CARTS_TABLE', 'harish-tf-carts')
+    return dynamodb.Table(table_name)
+
+
+def normalize_cart_items(items):
+    """Accept cart items stored as a mapping or a list and normalize to a mapping."""
+    if isinstance(items, dict):
+        iterable = items.items()
+    elif isinstance(items, list):
+        iterable = (
+            (str(item.get('product_id', item.get('product'))), item)
+            for item in items
+        )
+    else:
+        raise ValueError("Cart items must be an object or list")
+
+    normalized_items = {}
+    for product_id, item in iterable:
+        if not product_id or product_id == 'None':
+            raise ValueError("Cart item is missing product_id")
+
+        quantity = int(item.get('quantity', 0))
+        if quantity <= 0:
+            raise ValueError(f"Cart item {product_id} has invalid quantity")
+
+        unit_price = Decimal(str(item.get('unit_price', item.get('price', 0))))
+        total_price = Decimal(str(item.get('total_price', unit_price * quantity)))
+
+        normalized_items[product_id] = {
+            'product_id': str(item.get('product_id', product_id)),
+            'product_name': item.get('product_name', item.get('product', product_id)),
+            'unit_price': unit_price,
+            'quantity': quantity,
+            'total_price': total_price
+        }
+
+    return normalized_items
 
 def lambda_handler(event, context):
     """
@@ -59,16 +120,14 @@ def lambda_handler(event, context):
             return error_response(400, "Invalid request")
 
     except Exception as e:
-        print(f"Error: {str(e)}")
-
-        try:
-            sns.publish(
-                TopicArn=SNS_TOPIC_ARN,
-                Subject="Order Service Error",
-                Message=f"Error occurred in Order Service:\n\n{str(e)}"
-            )
-        except Exception as sns_error:
-            print(f"SNS Error: {str(sns_error)}")
+        print(f"Error in create_order: {str(e)}")
+        print(f"Error type: {type(e)}")
+        import traceback
+        traceback.print_exc()
+        publish_sns(
+            "Order Service Error",
+            f"Error occurred in Order Service:\n\n{str(e)}"
+        )
 
         return error_response(500, f"Internal server error: {str(e)}")
 
@@ -93,12 +152,15 @@ def create_order(body):
 
         # Create order
         order_id = str(uuid.uuid4())
+        # Convert float values from JSON back to Decimal for DynamoDB
+        items = normalize_cart_items(cart['items'])
+        
         order = {
             'order_id': order_id,
             'user_id': user_id,
-            'items': cart['items'],
-            'total_items': cart['total_items'],
-            'total_price': cart['total_price'],
+            'items': items,
+            'total_items': int(cart['total_items']),
+            'total_price': Decimal(str(cart['total_price'])),
             'status': 'CONFIRMED',
             'shipping_address': body['shipping_address'],
             'email': body['email'],
@@ -109,26 +171,29 @@ def create_order(body):
             'estimated_delivery': calculate_delivery_date()
         }
 
-        # Save order
-        orders_table = get_orders_table()
-        orders_table.put_item(Item=order)
+        try:
+            # Save order
+            orders_table = get_orders_table()
+            orders_table.put_item(Item=order)
+        except Exception as e:
+            print(f"DynamoDB put error: {str(e)}")
+            print(f"Order item: {order}")
+            raise e
 
         # Clear user's cart
         carts_table = get_carts_table()
         carts_table.delete_item(Key={'user_id': user_id})
 
         # After order is successfully saved
-
-        sns.publish(
-            TopicArn=SNS_TOPIC_ARN,
-            Subject="Order Confirmation",
-            Message=f"""
+        publish_sns(
+            "Order Confirmation",
+            f"""
                 Order placed successfully!
 
                 Order ID: {order_id}
                 User ID: {user_id}
-                Total Items: {cart['total_items']}
-                Total Price: {cart['total_price']}
+                Total Items: {int(cart['total_items'])}
+                Total Price: ${float(cart['total_price']):.2f}
 
                 Shipping Address:
                 {body['shipping_address']}
@@ -236,7 +301,7 @@ def success_response(status_code, data):
     return {
         'statusCode': status_code,
         'headers': {'Content-Type': 'application/json'},
-        'body': json.dumps(data, default=str)
+        'body': json.dumps(data, default=decimal_default)
     }
 
 

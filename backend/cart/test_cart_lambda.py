@@ -88,7 +88,8 @@ def test_get_cart_empty(monkeypatch):
     body = json.loads(response['body'])
 
     assert response['statusCode'] == 200
-    assert body['total_items'] == 0
+    assert body['message'] == 'Cart is empty'
+    assert body['data']['total_items'] == 0
 
 
 # ------------------------
@@ -130,6 +131,54 @@ def test_update_cart_item(monkeypatch):
 
     assert response['statusCode'] == 200
     fake_carts.put_item.assert_called_once()
+
+
+def test_add_to_cart_normalizes_legacy_list_cart(monkeypatch):
+    fake_carts = MagicMock()
+    fake_products = MagicMock()
+
+    fake_products.get_item.return_value = {
+        "Item": {
+            "product_id": "p2",
+            "name": "Laptop",
+            "price": 1500
+        }
+    }
+
+    fake_carts.get_item.return_value = {
+        "Item": {
+            "user_id": "1",
+            "items": [
+                {
+                    "product_id": "p1",
+                    "product": "Phone",
+                    "price": 1000,
+                    "quantity": 1
+                }
+            ],
+            "created_at": "2026-04-24T10:00:00",
+            "updated_at": "2026-04-24T10:00:00"
+        }
+    }
+
+    monkeypatch.setattr(lf, "get_carts_table", lambda: fake_carts)
+    monkeypatch.setattr(lf, "get_products_table", lambda: fake_products)
+
+    event = {
+        "requestContext": {"http": {"method": "POST"}},
+        "body": json.dumps({
+            "user_id": "1",
+            "product_id": "p2",
+            "quantity": 1
+        })
+    }
+
+    response = lf.lambda_handler(event, None)
+    body = json.loads(response["body"])
+
+    assert response["statusCode"] == 200
+    assert body["data"]["items"]["p1"]["product_name"] == "Phone"
+    assert body["data"]["items"]["p2"]["product_name"] == "Laptop"
 
 
 # ------------------------

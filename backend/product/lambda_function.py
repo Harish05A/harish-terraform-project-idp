@@ -4,13 +4,21 @@ import os
 from datetime import datetime
 from decimal import Decimal
 
+def decimal_default(obj):
+    """Handle Decimal serialization for JSON"""
+    if isinstance(obj, Decimal):
+        if obj % 1 == 0:
+            return int(obj)
+        return float(obj)
+    raise TypeError
+
 # DynamoDB resource
 
 # table_name = os.environ.get('PRODUCTS_TABLE')
 def get_table():
-    dynamodb = dynamodb = boto3.resource(
+    dynamodb = boto3.resource(
         'dynamodb',
-        region_name=os.environ.get('AWS_REGION', 'ap-southeast-1'))
+        region_name=os.environ.get('REGION_NAME', 'ap-southeast-1'))
     return dynamodb.Table(os.environ.get('PRODUCTS_TABLE'))
 
 
@@ -189,7 +197,7 @@ def success_response(status_code, data):
     return {
         'statusCode': status_code,
         'headers': {'Content-Type': 'application/json'},
-        'body': json.dumps(data, default=str)
+        'body': json.dumps(data, default=decimal_default)
     }
 
 
