@@ -349,7 +349,6 @@ def success_response(status_code, data):
 
 
 def error_response(status_code, message):
-    """Return error response"""
     return {
         'statusCode': status_code,
         'headers': {

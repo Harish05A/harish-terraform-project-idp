@@ -28,6 +28,7 @@ It includes:
 - Added Route 53 health check and SNS topic/subscription for frontend alerts
 - Defined Terraform outputs for API URL, frontend URL, table names, and Lambda details
 - Added unit test files for the product, cart, and order Lambda functions
+- Added 5 star Review Feature for the products after the order is placed
 
 ## Architecture Diagram
 ```mermaid
@@ -111,6 +112,7 @@ flowchart TD
 - `GET /order/user/{user_id}`
 - `POST /order`
 - `DELETE /order/{order_id}`
+- `POST /product/{product_id}/review`
 
 ## Frontend
 The frontend is a static HTML application hosted on S3.
