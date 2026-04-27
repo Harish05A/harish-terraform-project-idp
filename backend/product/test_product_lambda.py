@@ -27,6 +27,10 @@ def test_create_product_success(monkeypatch):
 
     assert response['statusCode'] == 201
     assert body['data']['name'] == "Phone"
+    assert body['data']['rating_average'] == 0
+    assert body['data']['rating_count'] == 0
+    assert body['data']['rating_total'] == 0
+    assert body['data']['rating'] == 0
 
     # verify DB call happened
     fake_table.put_item.assert_called_once()
@@ -44,7 +48,10 @@ def test_get_all_products(monkeypatch):
                 "product_id": "1",
                 "name": "Phone",
                 "price": 1000,
-                "description": "Smartphone"
+                "description": "Smartphone",
+                "rating_average": 4.5,
+                "rating_count": 2,
+                "rating_total": 9
             }
         ]
     }
@@ -60,6 +67,9 @@ def test_get_all_products(monkeypatch):
 
     assert response['statusCode'] == 200
     assert body['count'] == 1
+    assert body['data'][0]['rating_average'] == 4.5
+    assert body['data'][0]['rating_count'] == 2
+    assert body['data'][0]['rating_total'] == 9
 
 
 # ------------------------
@@ -76,7 +86,11 @@ def test_update_product(monkeypatch):
     fake_table.update_item.return_value = {
         "Attributes": {
             "product_id": "1",
-            "name": "New Phone"
+            "name": "New Phone",
+            "rating_average": 5,
+            "rating_count": 3,
+            "rating_total": 15,
+            "rating": 5
         }
     }
 
@@ -86,13 +100,19 @@ def test_update_product(monkeypatch):
         "requestContext": {"http": {"method": "PUT"}},
         "rawPath": "/product/1",
         "body": json.dumps({
-            "name": "New Phone"
+            "name": "New Phone",
+            "rating_average": 5,
+            "rating_count": 3,
+            "rating_total": 15
         })
     }
 
     response = lf.lambda_handler(event, None)
+    body = json.loads(response['body'])
 
     assert response['statusCode'] == 200
+    assert body['data']['rating_average'] == 5
+    assert body['data']['rating_count'] == 3
     fake_table.update_item.assert_called_once()
 
 
@@ -158,3 +178,237 @@ def test_update_product_not_found(monkeypatch):
     response = lf.lambda_handler(event, None)
 
     assert response['statusCode'] == 404
+
+
+# ------------------------
+# TEST SUBMIT REVIEW
+# ------------------------
+def test_submit_review_success(monkeypatch):
+    fake_product_table = MagicMock()
+    fake_orders_table = MagicMock()
+
+    fake_product_table.get_item.return_value = {
+        "Item": {
+            "product_id": "1",
+            "rating_total": 8,
+            "rating_count": 2
+        }
+    }
+
+    fake_product_table.update_item.return_value = {
+        "Attributes": {
+            "product_id": "1",
+            "rating_total": 13,
+            "rating_count": 3,
+            "rating_average": 13 / 3,
+            "rating": 13 / 3
+        }
+    }
+
+    fake_orders_table.get_item.return_value = {
+        "Item": {
+            "order_id": "order-123",
+            "user_id": "user-123",
+            "items": {
+                "1": {
+                    "product_id": "1",
+                    "product_name": "Phone",
+                    "quantity": 1
+                }
+            },
+            "reviewed_products": []
+        }
+    }
+
+    monkeypatch.setattr(lf, "get_table", lambda: fake_product_table)
+    monkeypatch.setattr(lf, "get_orders_table", lambda: fake_orders_table)
+
+    event = {
+        "requestContext": {"http": {"method": "POST"}},
+        "rawPath": "/product/1/review",
+        "body": json.dumps({
+            "user_id": "user-123",
+            "order_id": "order-123",
+            "rating": 5
+        })
+    }
+
+    response = lf.lambda_handler(event, None)
+    body = json.loads(response['body'])
+
+    assert response['statusCode'] == 200
+    assert body['data']['rating_count'] == 3
+    assert round(body['data']['rating_average'], 2) == 4.33
+    fake_product_table.update_item.assert_called_once()
+    fake_orders_table.put_item.assert_called_once()
+
+
+def test_submit_review_invalid_rating(monkeypatch):
+    fake_table = MagicMock()
+    fake_orders_table = MagicMock()
+
+    monkeypatch.setattr(lf, "get_table", lambda: fake_table)
+    monkeypatch.setattr(lf, "get_orders_table", lambda: fake_orders_table)
+
+    event = {
+        "requestContext": {"http": {"method": "POST"}},
+        "rawPath": "/product/1/review",
+        "body": json.dumps({
+            "user_id": "user-123",
+            "order_id": "order-123",
+            "rating": 6
+        })
+    }
+
+    response = lf.lambda_handler(event, None)
+
+    assert response['statusCode'] == 400
+
+
+def test_submit_review_product_not_found(monkeypatch):
+    fake_product_table = MagicMock()
+    fake_orders_table = MagicMock()
+
+    fake_orders_table.get_item.return_value = {
+        "Item": {
+            "order_id": "order-123",
+            "user_id": "user-123",
+            "items": {
+                "999": {
+                    "product_id": "999",
+                    "product_name": "Ghost Product",
+                    "quantity": 1
+                }
+            },
+            "reviewed_products": []
+        }
+    }
+    fake_product_table.get_item.return_value = {}
+
+    monkeypatch.setattr(lf, "get_table", lambda: fake_product_table)
+    monkeypatch.setattr(lf, "get_orders_table", lambda: fake_orders_table)
+
+    event = {
+        "requestContext": {"http": {"method": "POST"}},
+        "rawPath": "/product/999/review",
+        "body": json.dumps({
+            "user_id": "user-123",
+            "order_id": "order-123",
+            "rating": 5
+        })
+    }
+
+    response = lf.lambda_handler(event, None)
+
+    assert response['statusCode'] == 404
+
+
+def test_submit_review_rejects_wrong_user(monkeypatch):
+    fake_product_table = MagicMock()
+    fake_orders_table = MagicMock()
+
+    fake_orders_table.get_item.return_value = {
+        "Item": {
+            "order_id": "order-123",
+            "user_id": "another-user",
+            "items": {
+                "1": {
+                    "product_id": "1",
+                    "product_name": "Phone",
+                    "quantity": 1
+                }
+            },
+            "reviewed_products": []
+        }
+    }
+
+    monkeypatch.setattr(lf, "get_table", lambda: fake_product_table)
+    monkeypatch.setattr(lf, "get_orders_table", lambda: fake_orders_table)
+
+    event = {
+        "requestContext": {"http": {"method": "POST"}},
+        "rawPath": "/product/1/review",
+        "body": json.dumps({
+            "user_id": "user-123",
+            "order_id": "order-123",
+            "rating": 5
+        })
+    }
+
+    response = lf.lambda_handler(event, None)
+
+    assert response['statusCode'] == 403
+
+
+def test_submit_review_rejects_product_not_in_order(monkeypatch):
+    fake_product_table = MagicMock()
+    fake_orders_table = MagicMock()
+
+    fake_orders_table.get_item.return_value = {
+        "Item": {
+            "order_id": "order-123",
+            "user_id": "user-123",
+            "items": {
+                "2": {
+                    "product_id": "2",
+                    "product_name": "Headphones",
+                    "quantity": 1
+                }
+            },
+            "reviewed_products": []
+        }
+    }
+
+    monkeypatch.setattr(lf, "get_table", lambda: fake_product_table)
+    monkeypatch.setattr(lf, "get_orders_table", lambda: fake_orders_table)
+
+    event = {
+        "requestContext": {"http": {"method": "POST"}},
+        "rawPath": "/product/1/review",
+        "body": json.dumps({
+            "user_id": "user-123",
+            "order_id": "order-123",
+            "rating": 5
+        })
+    }
+
+    response = lf.lambda_handler(event, None)
+
+    assert response['statusCode'] == 400
+
+
+def test_submit_review_rejects_duplicate_review(monkeypatch):
+    fake_product_table = MagicMock()
+    fake_orders_table = MagicMock()
+
+    fake_orders_table.get_item.return_value = {
+        "Item": {
+            "order_id": "order-123",
+            "user_id": "user-123",
+            "items": {
+                "1": {
+                    "product_id": "1",
+                    "product_name": "Phone",
+                    "quantity": 1
+                }
+            },
+            "reviewed_products": ["1"]
+        }
+    }
+
+    monkeypatch.setattr(lf, "get_table", lambda: fake_product_table)
+    monkeypatch.setattr(lf, "get_orders_table", lambda: fake_orders_table)
+
+    event = {
+        "requestContext": {"http": {"method": "POST"}},
+        "rawPath": "/product/1/review",
+        "body": json.dumps({
+            "user_id": "user-123",
+            "order_id": "order-123",
+            "rating": 5
+        })
+    }
+
+    response = lf.lambda_handler(event, None)
+
+    assert response['statusCode'] == 400

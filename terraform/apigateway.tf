@@ -72,6 +72,12 @@ resource "aws_apigatewayv2_route" "product_post" {
   target    = "integrations/${aws_apigatewayv2_integration.product_lambda.id}"
 }
 
+resource "aws_apigatewayv2_route" "product_review_post" {
+  api_id    = aws_apigatewayv2_api.product_api.id
+  route_key = "POST /product/{id}/review"
+  target    = "integrations/${aws_apigatewayv2_integration.product_lambda.id}"
+}
+
 resource "aws_apigatewayv2_route" "product_put" {
   api_id    = aws_apigatewayv2_api.product_api.id
   route_key = "PUT /product/{id}"

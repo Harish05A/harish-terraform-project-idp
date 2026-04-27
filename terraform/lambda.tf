@@ -24,6 +24,7 @@ resource "aws_lambda_function" "product" {
     variables = {
       REGION_NAME = var.aws_region
       PRODUCTS_TABLE = "${var.project_name}-products"
+      ORDERS_TABLE = "${var.project_name}-orders"
     }
   }
 

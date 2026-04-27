@@ -28,7 +28,7 @@ resource "aws_iam_role_policy_attachment" "product_lambda_basic_execution" {
   policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
 }
 
-# Policy for DynamoDB access (Product table)
+# Policy for DynamoDB access (Product and Orders tables)
 data "aws_iam_policy_document" "product_lambda_dynamodb" {
   statement {
     effect = "Allow"
@@ -43,7 +43,9 @@ data "aws_iam_policy_document" "product_lambda_dynamodb" {
     ]
 
     resources = [
-      "arn:aws:dynamodb:${var.aws_region}:*:table/${var.project_name}-products"
+      "arn:aws:dynamodb:${var.aws_region}:*:table/${var.project_name}-products",
+      "arn:aws:dynamodb:${var.aws_region}:*:table/${var.project_name}-orders",
+      "arn:aws:dynamodb:${var.aws_region}:*:table/${var.project_name}-orders/index/*"
     ]
   }
 }
@@ -171,4 +173,3 @@ resource "aws_iam_role_policy" "monitor_sns_policy" {
   role   = aws_iam_role.product_lambda_role.id
   policy = data.aws_iam_policy_document.monitor_sns_policy.json
 }
-

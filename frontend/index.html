@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Ecommerce Store</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
     <style>
         :root {
             --bg: #f8f9fa;
@@ -167,6 +168,8 @@
             color: var(--text-secondary);
         }
 
+
+
         .btn {
             display: inline-block;
             background: var(--primary);
@@ -191,11 +194,11 @@
             transform: scale(0.98);
         }
 
-        .cart-section, .orders-section, .add-section {
+        .cart-section, .orders-section, .add-section, .review-section {
             display: none;
         }
 
-        .cart-section.active, .orders-section.active, .add-section.active {
+        .cart-section.active, .orders-section.active, .add-section.active, .review-section.active {
             display: block;
             animation: fadeIn 0.3s ease;
         }
@@ -445,6 +448,63 @@
             gap: 0.5rem;
             margin-top: 0.5rem;
         }
+        .review-card {
+            background: var(--bg-card);
+            padding: 1.25rem;
+            border-radius: 12px;
+            box-shadow: var(--shadow);
+            margin-bottom: 1rem;
+        }
+        .review-card h3 {
+            margin-bottom: 0.35rem;
+        }
+        .review-card p {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+        .rating-picker {
+            display: flex;
+            gap: 0.35rem;
+            margin-top: 0.9rem;
+            margin-bottom: 0.9rem;
+        }
+        .star-btn {
+            background: transparent;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: #d1d5db;
+            transition: transform 0.15s, color 0.15s;
+        }
+        .star-btn.active {
+            color: orange;
+        }
+        .star-btn:hover {
+            transform: scale(1.1);
+        }
+        .review-selection {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+        }
+        .product-rating {
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+            margin-top: 0.35rem;
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+        }
+        .product-rating-stars {
+            display: inline-flex;
+            gap: 0.1rem;
+        }
+        .product-rating-value {
+            font-weight: 600;
+            color: var(--text);
+        }
+        .checked {
+  color: orange;
+}
     </style>
 </head>
 <body>
@@ -454,6 +514,7 @@
             <a onclick="showSection('products')">Products</a>
             <a onclick="showSection('cart')">Cart (<span id="cartCount">0</span>)</a>
             <a onclick="showSection('orders')">Orders</a>
+            <a onclick="showSection('review')">Rate Order</a>
             <a onclick="showSection('add')">Add Product</a>
             <button class="theme-toggle" onclick="toggleTheme()" title="Toggle theme">🌓</button>
         </nav>
@@ -516,6 +577,18 @@
             <div id="ordersEmpty" class="empty-state" style="display:none;">No orders found</div>
         </div>
 
+        <div id="review" class="review-section">
+            <div class="section-title">Rate Your Purchase</div>
+            <div id="reviewIntro" class="order-details" style="margin-bottom:1rem;">
+                Choose a star rating for the products from your latest order.
+            </div>
+            <div id="reviewItems"></div>
+            <div id="reviewEmpty" class="empty-state">Place an order to rate your purchased products.</div>
+            <div class="btn-row" style="margin-top:1rem;">
+                <button onclick="showSection('orders')" class="btn" style="width:auto;">Go To Orders</button>
+            </div>
+        </div>
+
         <div id="add" class="add-section">
             <div class="section-title">Add New Product</div>
             <div class="form-add-product">
@@ -540,6 +613,10 @@
                             <input type="number" id="productStock" value="10" required>
                         </div>
                         <div class="form-group">
+                            <label>Rating</label>
+                            <input type="number" id="productRating" value="5" min="0" max="5" step="0.1" required>
+                        </div>
+                        <div class="form-group">
                             <label>Icon (emoji)</label>
                             <input type="text" id="productEmoji" value="📦" maxlength="2">
                         </div>
@@ -553,6 +630,10 @@
     <script>
         const API_BASE_URL = 'https://490z9zcjr8.execute-api.ap-southeast-1.amazonaws.com';
         let cart = {};
+        let latestOrderForReview = null;
+        let pendingRatings = {};
+        let submittedReviews = {};
+        let reviewSubmitting = {};
 
         // Theme handling
         const savedTheme = localStorage.getItem('theme') || 'light';
@@ -569,15 +650,17 @@
             loadProducts();
             loadCart();
             setupForms();
+            renderReviewSection();
         });
 
         function showSection(section) {
-            document.querySelectorAll('.products-section, .cart-section, .orders-section, .add-section').forEach(el => {
+            document.querySelectorAll('.products-section, .cart-section, .orders-section, .add-section, .review-section').forEach(el => {
                 el.classList.remove('active');
             });
             document.getElementById(section).classList.add('active');
             if (section === 'cart') updateCartUI();
             if (section === 'orders') loadUserOrders();
+            if (section === 'review') renderReviewSection();
         }
 
         async function apiCall(method, path, data = null) {
@@ -604,6 +687,8 @@
                     return;
                 }
                 data.data.forEach((p, i) => {
+                    const ratingAverage = Number(p.rating_average ?? p.rating ?? 0);
+                    const ratingCount = Number(p.rating_count ?? 0);
                     grid.innerHTML += `
                         <div class="product-card" style="animation-delay: ${i * 0.05}s">
                             <div class="product-image">${p.name.charAt(0).toUpperCase()}</div>
@@ -612,14 +697,134 @@
                                 <div class="product-desc">${p.description}</div>
                                 <div class="product-price">$${parseFloat(p.price).toFixed(2)}</div>
                                 <div class="product-stock">Stock: ${p.stock || 0}</div>
-                                <button class="btn" onclick='addToCart("${p.product_id}", "${p.name}", ${p.price})'>Add to Cart</button>
+                                <div class="product-rating">
+                                    <span class="product-rating-stars">${addRating(ratingAverage)}</span>
+                                    <span class="product-rating-value">${ratingAverage.toFixed(1)}</span>
+                                    <span>(${ratingCount} review${ratingCount === 1 ? '' : 's'})</span>
+                                </div>
+                                <div class="btn-row">
+                                    <button class="btn" onclick='addToCart("${p.product_id}", "${p.name}", ${p.price})'>Add to Cart</button>
+                                </div>
                             </div>
                         </div>
                     `;
                 });
             } catch (e) {}
         }
+        function addRating(rating) {
+            let stars = '';
+            for (let i = 1; i <= 5; i++) {
+                stars += `<span class="fa fa-star ${i <= rating ? 'checked' : ''}"></span>`;
+            }
+            return stars;
+        }
+        function getOrderItems(order) {
+            if (!order || !order.items) return [];
+            if (Array.isArray(order.items)) return order.items;
+            return Object.values(order.items);
+        }
+        function renderReviewSection() {
+            const container = document.getElementById('reviewItems');
+            const empty = document.getElementById('reviewEmpty');
+            const intro = document.getElementById('reviewIntro');
 
+            if (!latestOrderForReview) {
+                container.innerHTML = '';
+                empty.style.display = 'block';
+                intro.textContent = 'Choose a star rating for the products from your latest order.';
+                return;
+            }
+
+            const items = getOrderItems(latestOrderForReview);
+            if (items.length === 0) {
+                container.innerHTML = '';
+                empty.style.display = 'block';
+                intro.textContent = 'No products were found for the latest order.';
+                return;
+            }
+
+            empty.style.display = 'none';
+            intro.textContent = `Order #${latestOrderForReview.order_id.substring(0, 8)} was placed successfully. Pick a star rating for each product below.`;
+
+            container.innerHTML = items.map(item => {
+                const productId = item.product_id;
+                const selectedRating = pendingRatings[productId] || 0;
+                const alreadySubmitted = submittedReviews[productId];
+                const isSubmitting = reviewSubmitting[productId];
+                const stars = [1, 2, 3, 4, 5].map(star => `
+                    <button
+                        type="button"
+                        class="star-btn ${star <= selectedRating ? 'active' : ''}"
+                        onclick="selectReviewRating('${productId}', ${star})"
+                        aria-label="Rate ${item.product_name} ${star} stars"
+                        ${alreadySubmitted || isSubmitting ? 'disabled' : ''}
+                    >
+                        <i class="fa fa-star"></i>
+                    </button>
+                `).join('');
+
+                return `
+                    <div class="review-card">
+                        <h3>${item.product_name}</h3>
+                        <p>Quantity purchased: ${item.quantity}</p>
+                        <div class="rating-picker">${stars}</div>
+                        <div class="review-selection">
+                            ${alreadySubmitted
+                                ? `Review submitted: ${alreadySubmitted} star${alreadySubmitted > 1 ? 's' : ''}`
+                                : selectedRating
+                                    ? `Selected rating: ${selectedRating} star${selectedRating > 1 ? 's' : ''}`
+                                    : 'No rating selected yet'}
+                        </div>
+                        <div class="btn-row">
+                            <button
+                                type="button"
+                                class="btn"
+                                style="width:auto;"
+                                onclick="submitReview('${productId}')"
+                                ${alreadySubmitted || isSubmitting ? 'disabled' : ''}
+                            >
+                                ${isSubmitting ? 'Submitting...' : alreadySubmitted ? 'Submitted' : 'Submit Review'}
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+        function selectReviewRating(productId, rating) {
+            if (submittedReviews[productId] || reviewSubmitting[productId]) return;
+            pendingRatings[productId] = rating;
+            renderReviewSection();
+        }
+        async function submitReview(productId) {
+            const rating = pendingRatings[productId];
+            if (!latestOrderForReview) {
+                showAlert('No order is available for review yet.', 'error');
+                return;
+            }
+            if (!rating) {
+                showAlert('Please select a star rating first.', 'error');
+                return;
+            }
+
+            reviewSubmitting[productId] = true;
+            renderReviewSection();
+
+            try {
+                await apiCall('POST', `/product/${productId}/review`, {
+                    user_id: latestOrderForReview.user_id,
+                    order_id: latestOrderForReview.order_id,
+                    rating
+                });
+                submittedReviews[productId] = rating;
+                showAlert('Review submitted successfully!', 'success');
+                await loadProducts();
+                renderReviewSection();
+            } catch (e) {
+            } finally {
+                reviewSubmitting[productId] = false;
+                renderReviewSection();
+            }
+        }
         function addToCart(productId, name, price) {
             if (productId in cart) {
                 cart[productId].quantity += 1;
@@ -737,13 +942,20 @@
                     payment_method: document.getElementById('paymentMethod').value
                 };
                 try {
-                    await apiCall('POST', '/order', orderData);
+                    const orderResponse = await apiCall('POST', '/order', orderData);
+                    latestOrderForReview = orderResponse.data;
+                    pendingRatings = {};
+                    submittedReviews = {};
+                    reviewSubmitting = {};
+                    getOrderItems(latestOrderForReview).forEach(item => {
+                        pendingRatings[item.product_id] = 0;
+                    });
                     showAlert('Order placed successfully!', 'success');
                     cart = {};
                     saveCart();
                     updateCartCount();
                     updateCartUI();
-                    showSection('orders');
+                    showSection('review');
                     setTimeout(() => loadUserOrders(), 500);
                 } catch (e) {}
             });
@@ -755,6 +967,7 @@
                 const description = document.getElementById('productDescription').value;
                 const stock = parseInt(document.getElementById('productStock').value);
                 const productId = `product-${Date.now()}`;
+                const rating = parseFloat(document.getElementById('productRating').value); 
 
                 try {
                     await apiCall('POST', '/product', {
@@ -762,7 +975,8 @@
                         name,
                         price,
                         description,
-                        stock
+                        stock,
+                        rating
                     });
                     showAlert('Product added!', 'success');
                     document.getElementById('addProductForm').reset();
