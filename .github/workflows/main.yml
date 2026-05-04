@@ -1,4 +1,4 @@
-name: Simple CI
+name: Python CI
 
 on: push
 
@@ -8,3 +8,17 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - run: echo "Hello CI/CD"
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.13"
+
+      - name: Install tools
+        run: pip install pytest flake8
+
+      - name: Lint
+        run: flake8 .
+
+      - name: Test
+        run: pytest
