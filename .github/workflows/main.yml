@@ -14,8 +14,11 @@ jobs:
         with:
           python-version: "3.13"
 
-      - name: Install tools
-        run: pip install pytest flake8
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run tests
+        run: pytest
 
       - name: Test
         run: pytest
