@@ -1,16 +1,19 @@
 import { useState } from 'react'
+import { orderService } from '../services/api'
+import { getCartItems, getCartTotal } from '../utils/cartStorage'
 
-export default function Cart({ cart, removeFromCart, onCheckout, showAlert, apiCall }) {
+export default function Cart({ cart, removeFromCart, onCheckout, showAlert }) {
   const [checkoutData, setCheckoutData] = useState({
     userId: 'user-123',
     email: '',
     shippingAddress: '',
     paymentMethod: 'CARD'
   })
+  const [isCheckingOut, setIsCheckingOut] = useState(false)
 
   const count = Object.keys(cart).length
-  const items = Object.values(cart)
-  const total = items.reduce((sum, item) => sum + item.unit_price * item.quantity, 0)
+  const items = getCartItems(cart)
+  const total = getCartTotal(cart)
 
   const handleCheckout = async (e) => {
     e.preventDefault()
@@ -19,6 +22,7 @@ export default function Cart({ cart, removeFromCart, onCheckout, showAlert, apiC
       return
     }
 
+    setIsCheckingOut(true)
     try {
       const orderData = {
         user_id: checkoutData.userId,
@@ -26,10 +30,14 @@ export default function Cart({ cart, removeFromCart, onCheckout, showAlert, apiC
         shipping_address: checkoutData.shippingAddress,
         payment_method: checkoutData.paymentMethod
       }
-      const orderResponse = await apiCall('POST', '/order', orderData)
+      const orderResponse = await orderService.create(orderData)
       showAlert('Order placed successfully!', 'success')
       onCheckout(orderResponse.data)
-    } catch (e) {}
+    } catch (error) {
+      showAlert(error.message, 'error')
+    } finally {
+      setIsCheckingOut(false)
+    }
   }
 
   if (count === 0) {
@@ -105,7 +113,7 @@ export default function Cart({ cart, removeFromCart, onCheckout, showAlert, apiC
             </select>
           </div>
           <button type="submit" className="btn-primary">
-            Place Order
+            {isCheckingOut ? 'Placing Order...' : 'Place Order'}
           </button>
         </form>
       </div>

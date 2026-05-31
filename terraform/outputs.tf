@@ -56,8 +56,13 @@ output "orders_table_arn" {
 # =====================
 
 output "api_endpoint" {
-  description = "Product API endpoint URL"
+  description = "API Gateway base URL"
   value       = "${aws_apigatewayv2_api.product_api.api_endpoint}/"
+}
+
+output "api_v1_endpoint" {
+  description = "Versioned API v1 base URL"
+  value       = "${aws_apigatewayv2_api.product_api.api_endpoint}/v1/"
 }
 
 output "api_id" {
@@ -94,26 +99,27 @@ output "order_lambda_arn" {
 # =====================
 
 output "api_routes" {
-  description = "All available API routes"
+  description = "Primary API v1 routes; legacy unversioned routes remain for compatibility"
   value = {
     product = {
-      "GET /product"         = "List all products"
-      "POST /product"        = "Create product"
-      "PUT /product/{id}"    = "Update product"
-      "DELETE /product/{id}" = "Delete product"
+      "GET /v1/products"              = "List all products"
+      "POST /v1/products"             = "Create product"
+      "POST /v1/products/{id}/review" = "Create product review"
+      "PUT /v1/products/{id}"         = "Update product"
+      "DELETE /v1/products/{id}"      = "Delete product"
     }
     cart = {
-      "GET /cart/{user_id}"                    = "Get user's cart"
-      "POST /cart"                             = "Add item to cart"
-      "PUT /cart/{user_id}/{product_id}"       = "Update item quantity"
-      "DELETE /cart/{user_id}/{product_id}"    = "Remove item from cart"
-      "DELETE /cart/{user_id}"                 = "Clear entire cart"
+      "GET /v1/cart/{user_id}"                 = "Get user's cart"
+      "POST /v1/cart"                          = "Add item to cart"
+      "PUT /v1/cart/{user_id}/{product_id}"    = "Update item quantity"
+      "DELETE /v1/cart/{user_id}/{product_id}" = "Remove item from cart"
+      "DELETE /v1/cart/{user_id}"              = "Clear entire cart"
     }
     order = {
-      "GET /order/{order_id}"       = "Get order details"
-      "GET /order/user/{user_id}"   = "Get user's orders"
-      "POST /order"                 = "Create order from cart"
-      "DELETE /order/{order_id}"    = "Cancel order"
+      "GET /v1/orders/{order_id}"     = "Get order details"
+      "GET /v1/orders/user/{user_id}" = "Get user's orders"
+      "POST /v1/orders"               = "Create order from cart"
+      "DELETE /v1/orders/{order_id}"  = "Cancel order"
     }
   }
 }
@@ -159,11 +165,12 @@ output "frontend_health_check_id" {
 output "system_summary" {
   description = "Complete system information"
   value = {
-    frontend_url  = "http://${aws_s3_bucket_website_configuration.frontend.website_endpoint}"
-    api_url       = "${aws_apigatewayv2_api.product_api.api_endpoint}/"
-    region        = var.aws_region
-    project_name  = var.project_name
-    profile       = "idp-sbx-trn-lab-01"
-    deployment    = "Complete"
+    frontend_url = "http://${aws_s3_bucket_website_configuration.frontend.website_endpoint}"
+    api_url      = "${aws_apigatewayv2_api.product_api.api_endpoint}/"
+    api_v1_url   = "${aws_apigatewayv2_api.product_api.api_endpoint}/v1/"
+    region       = var.aws_region
+    project_name = var.project_name
+    profile      = "idp-sbx-trn-lab-01"
+    deployment   = "Complete"
   }
 }

@@ -468,6 +468,7 @@ header {
   font-weight: 700;
   color: var(--primary);
   cursor: pointer;
+  text-decoration: none;
 }
 
 nav {
@@ -486,6 +487,30 @@ nav a {
 
 nav a:hover {
   color: var(--text);
+}
+
+nav a.active {
+  color: var(--primary);
+  font-weight: 600;
+}
+
+.loader,
+.error-message {
+  background: var(--bg-card);
+  border-radius: 8px;
+  box-shadow: var(--shadow);
+  margin-bottom: 1rem;
+  padding: 1rem;
+}
+
+.loader {
+  color: var(--text-secondary);
+  text-align: center;
+}
+
+.error-message {
+  border: 1px solid #fecaca;
+  color: var(--danger);
 }
 
 .theme-toggle {

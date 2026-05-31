@@ -9,7 +9,7 @@ import json
 import sys
 from datetime import datetime
 
-API_URL = "https://490z9zcjr8.execute-api.ap-southeast-1.amazonaws.com"
+API_URL = "https://490z9zcjr8.execute-api.ap-southeast-1.amazonaws.com/v1"
 USER_ID = "user-123"
 
 # ANSI Colors
@@ -114,14 +114,14 @@ def main():
     added_products = []
     for product in products:
         print_info(f"Adding: {product['name']}")
-        response = api_call("POST", "/product", product)
+        response = api_call("POST", "/products", product)
         if response:
             added_products.append(product)
             print_success(f"Added {product['name']}")
 
     # Step 2: List Products
     print_step(2, "Listing All Products")
-    response = api_call("GET", "/product")
+    response = api_call("GET", "/products")
     if response:
         print(json.dumps(response, indent=2))
         product_count = len(response.get('data', []))
@@ -166,7 +166,7 @@ def main():
         "payment_method": "CARD"
     }
     print_info("Creating order...")
-    response = api_call("POST", "/order", order_data)
+    response = api_call("POST", "/orders", order_data)
     order_id = None
     if response:
         print(json.dumps(response, indent=2))
@@ -177,14 +177,14 @@ def main():
     # Step 7: View Order Details
     if order_id:
         print_step(7, "Viewing Order Details")
-        response = api_call("GET", f"/order/{order_id}")
+        response = api_call("GET", f"/orders/{order_id}")
         if response:
             print(json.dumps(response, indent=2))
             print_success("Order retrieved")
 
     # Step 8: View User Orders
     print_step(8, "Viewing All User Orders")
-    response = api_call("GET", f"/order/user/{USER_ID}")
+    response = api_call("GET", f"/orders/user/{USER_ID}")
     if response:
         print(json.dumps(response, indent=2))
         order_count = len(response.get('data', []))

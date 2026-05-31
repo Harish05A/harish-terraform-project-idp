@@ -9,7 +9,7 @@ http://harish-tf-frontend-726101441380.s3-website-ap-southeast-1.amazonaws.com
 
 ### API Endpoint
 ```
-https://490z9zcjr8.execute-api.ap-southeast-1.amazonaws.com
+https://490z9zcjr8.execute-api.ap-southeast-1.amazonaws.com/v1
 ```
 
 ---
@@ -28,17 +28,17 @@ https://490z9zcjr8.execute-api.ap-southeast-1.amazonaws.com
 
 ### List All Products
 ```bash
-curl https://490z9zcjr8.execute-api.ap-southeast-1.amazonaws.com/product
+curl https://490z9zcjr8.execute-api.ap-southeast-1.amazonaws.com/v1/products
 ```
 
 ### Get User's Cart
 ```bash
-curl https://490z9zcjr8.execute-api.ap-southeast-1.amazonaws.com/cart/user-123
+curl https://490z9zcjr8.execute-api.ap-southeast-1.amazonaws.com/v1/cart/user-123
 ```
 
 ### Get User's Orders
 ```bash
-curl https://490z9zcjr8.execute-api.ap-southeast-1.amazonaws.com/order/user/user-123
+curl https://490z9zcjr8.execute-api.ap-southeast-1.amazonaws.com/v1/orders/user/user-123
 ```
 
 ---

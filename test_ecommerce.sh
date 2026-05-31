@@ -3,7 +3,7 @@
 # E-Commerce Testing Script
 # This script adds products, tests the full flow
 
-API_URL="https://490z9zcjr8.execute-api.ap-southeast-1.amazonaws.com"
+API_URL="https://490z9zcjr8.execute-api.ap-southeast-1.amazonaws.com/v1"
 USER_ID="user-123"
 
 echo "================================"
@@ -48,14 +48,14 @@ products=(
 
 for product in "${products[@]}"; do
     echo -e "${YELLOW}Adding: $(echo $product | cut -d'"' -f4)${NC}"
-    response=$(call_api "POST" "/product" "$product")
+    response=$(call_api "POST" "/products" "$product")
     echo "$response" | grep -q "created successfully" && echo -e "${GREEN}✓ Added${NC}" || echo -e "${GREEN}✓ Added${NC}"
     echo ""
 done
 
 # Step 2: List Products
 echo -e "${BLUE}[Step 2] Listing All Products${NC}"
-response=$(call_api "GET" "/product")
+response=$(call_api "GET" "/products")
 echo "$response" | python3 -m json.tool 2>/dev/null || echo "$response"
 echo ""
 
@@ -101,7 +101,7 @@ order_data='{
     "payment_method":"CARD"
 }'
 echo -e "${YELLOW}Creating order...${NC}"
-response=$(call_api "POST" "/order" "$order_data")
+response=$(call_api "POST" "/orders" "$order_data")
 order_id=$(echo "$response" | grep -o '"order_id":"[^"]*"' | cut -d'"' -f4 | head -1)
 echo "$response" | python3 -m json.tool 2>/dev/null || echo "$response"
 echo ""
@@ -110,14 +110,14 @@ echo ""
 if [ ! -z "$order_id" ]; then
     echo -e "${BLUE}[Step 7] Viewing Order Details${NC}"
     echo -e "${YELLOW}Order ID: $order_id${NC}"
-    response=$(call_api "GET" "/order/$order_id")
+    response=$(call_api "GET" "/orders/$order_id")
     echo "$response" | python3 -m json.tool 2>/dev/null || echo "$response"
     echo ""
 fi
 
 # Step 8: View User Orders
 echo -e "${BLUE}[Step 8] Viewing All User Orders${NC}"
-response=$(call_api "GET" "/order/user/$USER_ID")
+response=$(call_api "GET" "/orders/user/$USER_ID")
 echo "$response" | python3 -m json.tool 2>/dev/null || echo "$response"
 echo ""
 

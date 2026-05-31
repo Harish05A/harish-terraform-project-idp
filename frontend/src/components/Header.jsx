@@ -1,15 +1,17 @@
-export default function Header({ theme, toggleTheme, cartCount, activeSection, setActiveSection }) {
+import { Link, NavLink } from 'react-router-dom'
+
+export default function Header({ theme, toggleTheme, cartCount }) {
   return (
     <header>
-      <div className="logo" onClick={() => setActiveSection('products')}>
+      <Link className="logo" to="/">
         Ecommerce Store
-      </div>
+      </Link>
       <nav>
-        <a onClick={() => setActiveSection('products')}>Products</a>
-        <a onClick={() => setActiveSection('cart')}>Cart ({cartCount})</a>
-        <a onClick={() => setActiveSection('orders')}>Orders</a>
-        <a onClick={() => setActiveSection('review')}>Rate Order</a>
-        <a onClick={() => setActiveSection('add')}>Add Product</a>
+        <NavLink to="/">Products</NavLink>
+        <NavLink to="/cart">Cart ({cartCount})</NavLink>
+        <NavLink to="/orders">Orders</NavLink>
+        <NavLink to="/review">Rate Order</NavLink>
+        <NavLink to="/add-product">Add Product</NavLink>
         <button className="theme-toggle" onClick={toggleTheme} title="Toggle theme">
           {theme === 'dark' ? '☀️' : '🌙'}
         </button>

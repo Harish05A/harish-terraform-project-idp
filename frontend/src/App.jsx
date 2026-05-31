@@ -1,16 +1,21 @@
-import { useState, useEffect, useCallback } from 'react'
-import Header from './components/Header'
-import Products from './components/Products'
-import Cart from './components/Cart'
-import Orders from './components/Orders'
-import Review from './components/Review'
+import { useCallback, useEffect, useState } from 'react'
+import { Navigate, Route, Routes } from 'react-router-dom'
 import AddProduct from './components/AddProduct'
+import Header from './components/Header'
+import Review from './components/Review'
+import { useTheme } from './hooks/useTheme'
+import CartPage from './pages/CartPage'
+import OrdersPage from './pages/OrdersPage'
+import ProductsPage from './pages/ProductsPage'
+import { cartService, orderService, productService } from './services/api'
+import { getCartCount, loadSavedCart, saveCart } from './utils/cartStorage'
+import { getOrderItems } from './utils/orders'
 
-const API_BASE_URL = 'https://490z9zcjr8.execute-api.ap-southeast-1.amazonaws.com'
+const DEFAULT_USER_ID = 'user-123'
 
 function App() {
-  const [activeSection, setActiveSection] = useState('products')
-  const [cart, setCart] = useState({})
+  const { theme, toggleTheme } = useTheme()
+  const [cart, setCart] = useState(() => loadSavedCart())
   const [products, setProducts] = useState([])
   const [orders, setOrders] = useState([])
   const [latestOrderForReview, setLatestOrderForReview] = useState(null)
@@ -18,148 +23,139 @@ function App() {
   const [submittedReviews, setSubmittedReviews] = useState({})
   const [reviewSubmitting, setReviewSubmitting] = useState({})
   const [alert, setAlert] = useState({ show: false, message: '', type: '' })
-  const [theme, setTheme] = useState(localStorage.getItem('theme') || 'light')
-
-  useEffect(() => {
-    document.documentElement.setAttribute('data-theme', theme)
-    localStorage.setItem('theme', theme)
-  }, [theme])
-
-  const toggleTheme = () => {
-    setTheme(prev => prev === 'dark' ? 'light' : 'dark')
-  }
+  const [productsLoading, setProductsLoading] = useState(false)
+  const [productsError, setProductsError] = useState('')
+  const [ordersLoading, setOrdersLoading] = useState(false)
+  const [ordersError, setOrdersError] = useState('')
 
   const showAlert = (message, type) => {
     setAlert({ show: true, message, type })
     setTimeout(() => setAlert({ show: false, message: '', type: '' }), 3000)
   }
 
-  const apiCall = async (method, path, data = null) => {
+  const loadProducts = useCallback(async () => {
+    setProductsLoading(true)
+    setProductsError('')
+
     try {
-      const options = { method, headers: { 'Content-Type': 'application/json' } }
-      if (data) options.body = JSON.stringify(data)
-      const response = await fetch(`${API_BASE_URL}${path}`, options)
-      const result = await response.json()
-      if (!response.ok) throw new Error(result.error || 'API Error')
-      return result
+      const data = await productService.getAll()
+      setProducts(data.data || [])
     } catch (error) {
+      setProductsError(error.message)
       showAlert(error.message, 'error')
-      throw error
+    } finally {
+      setProductsLoading(false)
+    }
+  }, [])
+
+  const syncCartToBackend = async (cartItems) => {
+    const items = Object.values(cartItems)
+    if (items.length === 0) return
+
+    for (const item of items) {
+      try {
+        await cartService.addItem({
+          user_id: DEFAULT_USER_ID,
+          product_id: item.product_id,
+          quantity: item.quantity
+        })
+      } catch (error) {
+        console.error('Failed to sync cart:', error)
+      }
     }
   }
 
-  const loadProducts = useCallback(async () => {
-    try {
-      const data = await apiCall('GET', '/product')
-      setProducts(data.data || [])
-    } catch (e) {}
-  }, [])
-
   const addToCart = (productId, name, price) => {
-    setCart(prev => {
-      const newCart = { ...prev }
-      if (productId in newCart) {
-        newCart[productId].quantity += 1
+    setCart((currentCart) => {
+      const nextCart = { ...currentCart }
+
+      if (productId in nextCart) {
+        nextCart[productId].quantity += 1
       } else {
-        newCart[productId] = { product_id: productId, product_name: name, unit_price: price, quantity: 1 }
+        nextCart[productId] = {
+          product_id: productId,
+          product_name: name,
+          unit_price: price,
+          quantity: 1
+        }
       }
-      localStorage.setItem('cart', JSON.stringify(newCart))
-      syncCartToBackend(newCart)
-      return newCart
+
+      saveCart(nextCart)
+      syncCartToBackend(nextCart)
+      return nextCart
     })
     showAlert(`${name} added to cart`, 'success')
   }
 
-  const syncCartToBackend = async (cartItems) => {
-    const userId = 'user-123'
-    const items = Object.values(cartItems)
-    if (items.length === 0) return
-    for (const item of items) {
-      try {
-        await fetch(`${API_BASE_URL}/cart`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            user_id: userId,
-            product_id: item.product_id,
-            quantity: item.quantity
-          })
-        })
-      } catch (e) {
-        console.error('Failed to sync cart:', e)
-      }
-    }
-  }
-
   const removeFromCart = (productId) => {
-    setCart(prev => {
-      const newCart = { ...prev }
-      delete newCart[productId]
-      localStorage.setItem('cart', JSON.stringify(newCart))
-      return newCart
+    setCart((currentCart) => {
+      const nextCart = { ...currentCart }
+      delete nextCart[productId]
+      saveCart(nextCart)
+      return nextCart
     })
-    fetch(`${API_BASE_URL}/cart/user-123/${productId}`, { method: 'DELETE' })
-      .catch(e => console.error('Failed to remove from backend:', e))
+
+    cartService
+      .removeItem(DEFAULT_USER_ID, productId)
+      .catch((error) => console.error('Failed to remove from backend:', error))
   }
 
   const loadUserOrders = useCallback(async (userId) => {
     if (!userId) return
+
+    setOrdersLoading(true)
+    setOrdersError('')
+
     try {
-      const data = await apiCall('GET', `/order/user/${userId}`)
+      const data = await orderService.getByUser(userId)
       setOrders(data.data || [])
-    } catch (e) {
+    } catch (error) {
       setOrders([])
+      setOrdersError(error.message)
+      showAlert(error.message, 'error')
+    } finally {
+      setOrdersLoading(false)
     }
   }, [])
 
   const submitReview = async (productId) => {
     const rating = pendingRatings[productId]
+
     if (!latestOrderForReview) {
       showAlert('No order is available for review yet.', 'error')
       return
     }
+
     if (!rating) {
       showAlert('Please select a star rating first.', 'error')
       return
     }
 
-    setReviewSubmitting(prev => ({ ...prev, [productId]: true }))
+    setReviewSubmitting((currentState) => ({ ...currentState, [productId]: true }))
+
     try {
-      await apiCall('POST', `/product/${productId}/review`, {
+      await productService.addReview(productId, {
         user_id: latestOrderForReview.user_id,
         order_id: latestOrderForReview.order_id,
         rating
       })
-      setSubmittedReviews(prev => ({ ...prev, [productId]: rating }))
+      setSubmittedReviews((currentReviews) => ({ ...currentReviews, [productId]: rating }))
       showAlert('Review submitted successfully!', 'success')
       await loadProducts()
-    } catch (e) {}
-    setReviewSubmitting(prev => ({ ...prev, [productId]: false }))
+    } catch (error) {
+      showAlert(error.message, 'error')
+    } finally {
+      setReviewSubmitting((currentState) => ({ ...currentState, [productId]: false }))
+    }
   }
 
   useEffect(() => {
-    const saved = localStorage.getItem('cart')
-    if (saved) {
-      setCart(JSON.parse(saved))
-    }
     loadProducts()
   }, [loadProducts])
 
-  const getOrderItems = (order) => {
-    if (!order || !order.items) return []
-    if (Array.isArray(order.items)) return order.items
-    return Object.values(order.items)
-  }
-
   return (
     <>
-      <Header
-        theme={theme}
-        toggleTheme={toggleTheme}
-        cartCount={Object.values(cart).reduce((sum, item) => sum + item.quantity, 0)}
-        activeSection={activeSection}
-        setActiveSection={setActiveSection}
-      />
+      <Header theme={theme} toggleTheme={toggleTheme} cartCount={getCartCount(cart)} />
       <div className="container">
         {alert.show && (
           <div className={`alert ${alert.type}`} style={{ display: 'block' }}>
@@ -167,49 +163,63 @@ function App() {
           </div>
         )}
 
-        {activeSection === 'products' && (
-          <Products products={products} addToCart={addToCart} />
-        )}
-
-        {activeSection === 'cart' && (
-          <Cart
-            cart={cart}
-            removeFromCart={removeFromCart}
-            onCheckout={(orderData) => {
-              setLatestOrderForReview(orderData)
-              setPendingRatings({})
-              setSubmittedReviews({})
-              setActiveSection('review')
-              setTimeout(() => loadUserOrders('user-123'), 500)
-            }}
-            showAlert={showAlert}
-            apiCall={apiCall}
+        <Routes>
+          <Route
+            path="/"
+            element={
+              <ProductsPage
+                products={products}
+                loading={productsLoading}
+                error={productsError}
+                addToCart={addToCart}
+              />
+            }
           />
-        )}
-
-        {activeSection === 'orders' && (
-          <Orders
-            orders={orders}
-            loadUserOrders={loadUserOrders}
-            getOrderItems={getOrderItems}
+          <Route
+            path="/cart"
+            element={
+              <CartPage
+                cart={cart}
+                removeFromCart={removeFromCart}
+                showAlert={showAlert}
+                setLatestOrderForReview={setLatestOrderForReview}
+                setPendingRatings={setPendingRatings}
+                setSubmittedReviews={setSubmittedReviews}
+                loadUserOrders={loadUserOrders}
+              />
+            }
           />
-        )}
-
-        {activeSection === 'review' && (
-          <Review
-            latestOrderForReview={latestOrderForReview}
-            pendingRatings={pendingRatings}
-            submittedReviews={submittedReviews}
-            reviewSubmitting={reviewSubmitting}
-            setPendingRatings={setPendingRatings}
-            submitReview={submitReview}
-            getOrderItems={getOrderItems}
+          <Route
+            path="/orders"
+            element={
+              <OrdersPage
+                orders={orders}
+                loadUserOrders={loadUserOrders}
+                loading={ordersLoading}
+                error={ordersError}
+              />
+            }
           />
-        )}
-
-        {activeSection === 'add' && (
-          <AddProduct showAlert={showAlert} apiCall={apiCall} loadProducts={loadProducts} />
-        )}
+          <Route
+            path="/review"
+            element={
+              <Review
+                latestOrderForReview={latestOrderForReview}
+                pendingRatings={pendingRatings}
+                submittedReviews={submittedReviews}
+                reviewSubmitting={reviewSubmitting}
+                setPendingRatings={setPendingRatings}
+                submitReview={submitReview}
+                getOrderItems={getOrderItems}
+              />
+            }
+          />
+          <Route
+            path="/add-product"
+            element={<AddProduct showAlert={showAlert} loadProducts={loadProducts} />}
+          />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
       </div>
     </>
   )

@@ -1,6 +1,8 @@
 import { useState } from 'react'
+import ErrorMessage from './ErrorMessage'
+import Loader from './Loader'
 
-export default function Orders({ orders, loadUserOrders, getOrderItems }) {
+export default function Orders({ orders, loadUserOrders, loading, error }) {
   const [userId, setUserId] = useState('user-123')
 
   const handleLoadOrders = () => {
@@ -24,7 +26,10 @@ export default function Orders({ orders, loadUserOrders, getOrderItems }) {
           </button>
         </div>
       </div>
-      {orders.length === 0 ? (
+      <ErrorMessage message={error} />
+      {loading ? (
+        <Loader message="Loading orders..." />
+      ) : orders.length === 0 ? (
         <div className="empty-state" style={{ display: orders.length === 0 ? 'block' : 'none' }}>
           No orders found
         </div>

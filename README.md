@@ -21,7 +21,7 @@ It includes:
 - Added a monitoring Lambda that sends an SNS alert if the frontend is not reachable
 - Created DynamoDB tables for products, carts, and orders
 - Added an order table secondary index for querying orders by user
-- Configured HTTP API Gateway with routes for product, cart, and order operations
+- Configured HTTP API Gateway with `/v1` routes for product, cart, and order operations
 - Added Lambda permissions for API Gateway invocation
 - Created an S3 bucket for static website hosting
 - Uploaded the frontend application through Terraform
@@ -99,20 +99,22 @@ flowchart TD
 - `harish-tf-orders`
 
 ### API Routes
-- `GET /product`
-- `POST /product`
-- `PUT /product/{id}`
-- `DELETE /product/{id}`
-- `GET /cart/{user_id}`
-- `POST /cart`
-- `PUT /cart/{user_id}/{product_id}`
-- `DELETE /cart/{user_id}/{product_id}`
-- `DELETE /cart/{user_id}`
-- `GET /order/{order_id}`
-- `GET /order/user/{user_id}`
-- `POST /order`
-- `DELETE /order/{order_id}`
-- `POST /product/{product_id}/review`
+Primary endpoints use URL path versioning under `/v1`. Legacy unversioned routes remain available for compatibility.
+
+- `GET /v1/products`
+- `POST /v1/products`
+- `PUT /v1/products/{id}`
+- `DELETE /v1/products/{id}`
+- `POST /v1/products/{product_id}/review`
+- `GET /v1/cart/{user_id}`
+- `POST /v1/cart`
+- `PUT /v1/cart/{user_id}/{product_id}`
+- `DELETE /v1/cart/{user_id}/{product_id}`
+- `DELETE /v1/cart/{user_id}`
+- `GET /v1/orders/{order_id}`
+- `GET /v1/orders/user/{user_id}`
+- `POST /v1/orders`
+- `DELETE /v1/orders/{order_id}`
 
 ## Frontend
 The frontend is a static HTML application hosted on S3.
@@ -143,8 +145,16 @@ terraform plan
 terraform apply
 ```
 
+After deployment, rebuild and redeploy the frontend so Vite includes the `/v1` API paths:
+
+```bash
+cd frontend
+npm install
+npm run build
+```
+
 ## Links
-- ApiGateway URL - "https://490z9zcjr8.execute-api.ap-southeast-1.amazonaws.com/"
+- ApiGateway URL - "https://490z9zcjr8.execute-api.ap-southeast-1.amazonaws.com/v1/"
 - Frontend URL - "http://harish-tf-frontend-726101441380.s3-website-ap-southeast-1.amazonaws.com"
 
 ## Notes

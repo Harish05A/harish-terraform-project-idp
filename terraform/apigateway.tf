@@ -31,34 +31,120 @@ resource "aws_apigatewayv2_api" "product_api" {
 
 # Product Lambda Integration
 resource "aws_apigatewayv2_integration" "product_lambda" {
-  api_id                   = aws_apigatewayv2_api.product_api.id
-  integration_type         = "AWS_PROXY"
-  integration_method       = "POST"
-  payload_format_version   = "2.0"
-  integration_uri          = aws_lambda_function.product.arn
+  api_id                 = aws_apigatewayv2_api.product_api.id
+  integration_type       = "AWS_PROXY"
+  integration_method     = "POST"
+  payload_format_version = "2.0"
+  integration_uri        = aws_lambda_function.product.arn
 }
 
 # Cart Lambda Integration
 resource "aws_apigatewayv2_integration" "cart_lambda" {
-  api_id                   = aws_apigatewayv2_api.product_api.id
-  integration_type         = "AWS_PROXY"
-  integration_method       = "POST"
-  payload_format_version   = "2.0"
-  integration_uri          = aws_lambda_function.cart.arn
+  api_id                 = aws_apigatewayv2_api.product_api.id
+  integration_type       = "AWS_PROXY"
+  integration_method     = "POST"
+  payload_format_version = "2.0"
+  integration_uri        = aws_lambda_function.cart.arn
 }
 
 # Order Lambda Integration
 resource "aws_apigatewayv2_integration" "order_lambda" {
-  api_id                   = aws_apigatewayv2_api.product_api.id
-  integration_type         = "AWS_PROXY"
-  integration_method       = "POST"
-  payload_format_version   = "2.0"
-  integration_uri          = aws_lambda_function.order.arn
+  api_id                 = aws_apigatewayv2_api.product_api.id
+  integration_type       = "AWS_PROXY"
+  integration_method     = "POST"
+  payload_format_version = "2.0"
+  integration_uri        = aws_lambda_function.order.arn
+}
+
+locals {
+  v1_product_routes = {
+    product_get = {
+      route_key    = "GET /v1/products"
+      rewrite_path = "/product"
+    }
+    product_post = {
+      route_key    = "POST /v1/products"
+      rewrite_path = "/product"
+    }
+    product_review_post = {
+      route_key    = "POST /v1/products/{id}/review"
+      rewrite_path = "/product/$request.path.id/review"
+    }
+    product_put = {
+      route_key    = "PUT /v1/products/{id}"
+      rewrite_path = "/product/$request.path.id"
+    }
+    product_delete = {
+      route_key    = "DELETE /v1/products/{id}"
+      rewrite_path = "/product/$request.path.id"
+    }
+  }
+
+  v1_cart_routes = {
+    cart_get = {
+      route_key    = "GET /v1/cart/{user_id}"
+      rewrite_path = "/cart/$request.path.user_id"
+    }
+    cart_post = {
+      route_key    = "POST /v1/cart"
+      rewrite_path = "/cart"
+    }
+    cart_put = {
+      route_key    = "PUT /v1/cart/{user_id}/{product_id}"
+      rewrite_path = "/cart/$request.path.user_id/$request.path.product_id"
+    }
+    cart_delete_item = {
+      route_key    = "DELETE /v1/cart/{user_id}/{product_id}"
+      rewrite_path = "/cart/$request.path.user_id/$request.path.product_id"
+    }
+    cart_delete_all = {
+      route_key    = "DELETE /v1/cart/{user_id}"
+      rewrite_path = "/cart/$request.path.user_id"
+    }
+  }
+
+  v1_order_routes = {
+    order_get = {
+      route_key    = "GET /v1/orders/{order_id}"
+      rewrite_path = "/order/$request.path.order_id"
+    }
+    order_get_user = {
+      route_key    = "GET /v1/orders/user/{user_id}"
+      rewrite_path = "/order/user/$request.path.user_id"
+    }
+    order_post = {
+      route_key    = "POST /v1/orders"
+      rewrite_path = "/order"
+    }
+    order_delete = {
+      route_key    = "DELETE /v1/orders/{order_id}"
+      rewrite_path = "/order/$request.path.order_id"
+    }
+  }
 }
 
 # =====================
 # Product Routes
 # =====================
+
+resource "aws_apigatewayv2_integration" "v1_product_lambda" {
+  for_each               = local.v1_product_routes
+  api_id                 = aws_apigatewayv2_api.product_api.id
+  integration_type       = "AWS_PROXY"
+  integration_method     = "POST"
+  payload_format_version = "2.0"
+  integration_uri        = aws_lambda_function.product.arn
+  request_parameters = {
+    "overwrite:path" = each.value.rewrite_path
+  }
+}
+
+resource "aws_apigatewayv2_route" "v1_product" {
+  for_each  = local.v1_product_routes
+  api_id    = aws_apigatewayv2_api.product_api.id
+  route_key = each.value.route_key
+  target    = "integrations/${aws_apigatewayv2_integration.v1_product_lambda[each.key].id}"
+}
 
 resource "aws_apigatewayv2_route" "product_get" {
   api_id    = aws_apigatewayv2_api.product_api.id
@@ -94,6 +180,25 @@ resource "aws_apigatewayv2_route" "product_delete" {
 # Cart Routes
 # =====================
 
+resource "aws_apigatewayv2_integration" "v1_cart_lambda" {
+  for_each               = local.v1_cart_routes
+  api_id                 = aws_apigatewayv2_api.product_api.id
+  integration_type       = "AWS_PROXY"
+  integration_method     = "POST"
+  payload_format_version = "2.0"
+  integration_uri        = aws_lambda_function.cart.arn
+  request_parameters = {
+    "overwrite:path" = each.value.rewrite_path
+  }
+}
+
+resource "aws_apigatewayv2_route" "v1_cart" {
+  for_each  = local.v1_cart_routes
+  api_id    = aws_apigatewayv2_api.product_api.id
+  route_key = each.value.route_key
+  target    = "integrations/${aws_apigatewayv2_integration.v1_cart_lambda[each.key].id}"
+}
+
 resource "aws_apigatewayv2_route" "cart_get" {
   api_id    = aws_apigatewayv2_api.product_api.id
   route_key = "GET /cart/{user_id}"
@@ -127,6 +232,25 @@ resource "aws_apigatewayv2_route" "cart_delete_all" {
 # =====================
 # Order Routes
 # =====================
+
+resource "aws_apigatewayv2_integration" "v1_order_lambda" {
+  for_each               = local.v1_order_routes
+  api_id                 = aws_apigatewayv2_api.product_api.id
+  integration_type       = "AWS_PROXY"
+  integration_method     = "POST"
+  payload_format_version = "2.0"
+  integration_uri        = aws_lambda_function.order.arn
+  request_parameters = {
+    "overwrite:path" = each.value.rewrite_path
+  }
+}
+
+resource "aws_apigatewayv2_route" "v1_order" {
+  for_each  = local.v1_order_routes
+  api_id    = aws_apigatewayv2_api.product_api.id
+  route_key = each.value.route_key
+  target    = "integrations/${aws_apigatewayv2_integration.v1_order_lambda[each.key].id}"
+}
 
 resource "aws_apigatewayv2_route" "order_get" {
   api_id    = aws_apigatewayv2_api.product_api.id

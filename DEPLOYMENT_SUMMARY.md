@@ -11,7 +11,9 @@
 
 ## 🎯 API Endpoint
 
-**Base URL:** https://490z9zcjr8.execute-api.ap-southeast-1.amazonaws.com/
+**Base URL:** https://490z9zcjr8.execute-api.ap-southeast-1.amazonaws.com/v1/
+
+Primary API routes now use `/v1/products`, `/v1/cart`, and `/v1/orders`. Legacy unversioned routes remain available for compatibility.
 
 ---
 
@@ -40,31 +42,32 @@
 
 ---
 
-## 🛣️ API Routes (16 Total)
+## 🛣️ API Routes (Versioned)
 
-### Product Service (4 routes)
+### Product Service (5 routes)
 ```bash
-GET    /product              → List all products
-POST   /product              → Create product
-PUT    /product/{id}         → Update product
-DELETE /product/{id}         → Delete product
+GET    /v1/products              → List all products
+POST   /v1/products              → Create product
+PUT    /v1/products/{id}         → Update product
+DELETE /v1/products/{id}         → Delete product
+POST   /v1/products/{id}/review  → Submit review
 ```
 
 ### Cart Service (5 routes)
 ```bash
-GET    /cart/{user_id}                   → Get user's cart
-POST   /cart                             → Add item to cart
-PUT    /cart/{user_id}/{product_id}      → Update quantity
-DELETE /cart/{user_id}/{product_id}      → Remove item
-DELETE /cart/{user_id}                   → Clear cart
+GET    /v1/cart/{user_id}                   → Get user's cart
+POST   /v1/cart                             → Add item to cart
+PUT    /v1/cart/{user_id}/{product_id}      → Update quantity
+DELETE /v1/cart/{user_id}/{product_id}      → Remove item
+DELETE /v1/cart/{user_id}                   → Clear cart
 ```
 
 ### Order Service (4 routes)
 ```bash
-GET    /order/{order_id}                 → Get order details
-GET    /order/user/{user_id}             → Get user's orders
-POST   /order                            → Create order
-DELETE /order/{order_id}                 → Cancel order
+GET    /v1/orders/{order_id}                 → Get order details
+GET    /v1/orders/user/{user_id}             → Get user's orders
+POST   /v1/orders                            → Create order
+DELETE /v1/orders/{order_id}                 → Cancel order
 ```
 
 ---
@@ -73,12 +76,12 @@ DELETE /order/{order_id}                 → Cancel order
 
 ### 1. List Products
 ```bash
-curl https://490z9zcjr8.execute-api.ap-southeast-1.amazonaws.com/product
+curl https://490z9zcjr8.execute-api.ap-southeast-1.amazonaws.com/v1/products
 ```
 
 ### 2. Create a Product
 ```bash
-curl -X POST https://490z9zcjr8.execute-api.ap-southeast-1.amazonaws.com/product \
+curl -X POST https://490z9zcjr8.execute-api.ap-southeast-1.amazonaws.com/v1/products \
   -H "Content-Type: application/json" \
   -d '{
     "product_id": "prod-001",
@@ -91,7 +94,7 @@ curl -X POST https://490z9zcjr8.execute-api.ap-southeast-1.amazonaws.com/product
 
 ### 3. Add to Cart
 ```bash
-curl -X POST https://490z9zcjr8.execute-api.ap-southeast-1.amazonaws.com/cart \
+curl -X POST https://490z9zcjr8.execute-api.ap-southeast-1.amazonaws.com/v1/cart \
   -H "Content-Type: application/json" \
   -d '{
     "user_id": "user-123",
@@ -102,12 +105,12 @@ curl -X POST https://490z9zcjr8.execute-api.ap-southeast-1.amazonaws.com/cart \
 
 ### 4. View Cart
 ```bash
-curl https://490z9zcjr8.execute-api.ap-southeast-1.amazonaws.com/cart/user-123
+curl https://490z9zcjr8.execute-api.ap-southeast-1.amazonaws.com/v1/cart/user-123
 ```
 
 ### 5. Create Order
 ```bash
-curl -X POST https://490z9zcjr8.execute-api.ap-southeast-1.amazonaws.com/order \
+curl -X POST https://490z9zcjr8.execute-api.ap-southeast-1.amazonaws.com/v1/orders \
   -H "Content-Type: application/json" \
   -d '{
     "user_id": "user-123",
@@ -160,21 +163,21 @@ terraform/
 Frontend (Next: Step 6)
     ↓ HTTPS
 API Gateway (490z9zcjr8)
-    ├─ GET /product → harish-tf-product → harish-tf-products table
-    ├─ POST /product
-    ├─ PUT /product/{id}
-    ├─ DELETE /product/{id}
+    ├─ GET /v1/products → harish-tf-product → harish-tf-products table
+    ├─ POST /v1/products
+    ├─ PUT /v1/products/{id}
+    ├─ DELETE /v1/products/{id}
     │
-    ├─ GET /cart/{user_id} → harish-tf-cart → harish-tf-carts + harish-tf-products
-    ├─ POST /cart
-    ├─ PUT /cart/{user_id}/{product_id}
-    ├─ DELETE /cart/{user_id}/{product_id}
-    ├─ DELETE /cart/{user_id}
+    ├─ GET /v1/cart/{user_id} → harish-tf-cart → harish-tf-carts + harish-tf-products
+    ├─ POST /v1/cart
+    ├─ PUT /v1/cart/{user_id}/{product_id}
+    ├─ DELETE /v1/cart/{user_id}/{product_id}
+    ├─ DELETE /v1/cart/{user_id}
     │
-    ├─ GET /order/{order_id} → harish-tf-order → harish-tf-orders + harish-tf-carts
-    ├─ GET /order/user/{user_id} (via GSI)
-    ├─ POST /order
-    └─ DELETE /order/{order_id}
+    ├─ GET /v1/orders/{order_id} → harish-tf-order → harish-tf-orders + harish-tf-carts
+    ├─ GET /v1/orders/user/{user_id} (via GSI)
+    ├─ POST /v1/orders
+    └─ DELETE /v1/orders/{order_id}
 ```
 
 ---

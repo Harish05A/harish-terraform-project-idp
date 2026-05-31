@@ -14,7 +14,7 @@
 | Component | URL |
 |-----------|-----|
 | **Frontend** | http://harish-tf-frontend-726101441380.s3-website-ap-southeast-1.amazonaws.com |
-| **API Base URL** | https://490z9zcjr8.execute-api.ap-southeast-1.amazonaws.com/ |
+| **API Base URL** | https://490z9zcjr8.execute-api.ap-southeast-1.amazonaws.com/v1/ |
 | **Account ID** | 726101441380 |
 
 ---
@@ -39,31 +39,34 @@
 - **✅ Checkout flow**
 - **✅ Order history viewing**
 
-### API Routes (16 Endpoints)
+### API Routes (Versioned `/v1` Endpoints)
 
-**Product Routes (4):**
+Legacy unversioned routes remain available for compatibility, but the frontend and tests use these `/v1` paths.
+
+**Product Routes (5):**
 ```bash
-GET    /product              # List all products
-POST   /product              # Add product
-PUT    /product/{id}         # Update product
-DELETE /product/{id}         # Delete product
+GET    /v1/products              # List all products
+POST   /v1/products              # Add product
+PUT    /v1/products/{id}         # Update product
+DELETE /v1/products/{id}         # Delete product
+POST   /v1/products/{id}/review  # Submit review
 ```
 
 **Cart Routes (5):**
 ```bash
-GET    /cart/{user_id}                   # Get cart
-POST   /cart                             # Add to cart
-PUT    /cart/{user_id}/{product_id}      # Update quantity
-DELETE /cart/{user_id}/{product_id}      # Remove item
-DELETE /cart/{user_id}                   # Clear cart
+GET    /v1/cart/{user_id}                   # Get cart
+POST   /v1/cart                             # Add to cart
+PUT    /v1/cart/{user_id}/{product_id}      # Update quantity
+DELETE /v1/cart/{user_id}/{product_id}      # Remove item
+DELETE /v1/cart/{user_id}                   # Clear cart
 ```
 
 **Order Routes (4):**
 ```bash
-GET    /order/{order_id}                 # Get order details
-GET    /order/user/{user_id}             # Get user's orders
-POST   /order                            # Create order
-DELETE /order/{order_id}                 # Cancel order
+GET    /v1/orders/{order_id}                 # Get order details
+GET    /v1/orders/user/{user_id}             # Get user's orders
+POST   /v1/orders                            # Create order
+DELETE /v1/orders/{order_id}                 # Cancel order
 ```
 
 ---
@@ -82,12 +85,12 @@ DELETE /order/{order_id}                 # Cancel order
 
 **1. List Products:**
 ```bash
-curl https://490z9zcjr8.execute-api.ap-southeast-1.amazonaws.com/product
+curl https://490z9zcjr8.execute-api.ap-southeast-1.amazonaws.com/v1/products
 ```
 
 **2. Create Product:**
 ```bash
-curl -X POST https://490z9zcjr8.execute-api.ap-southeast-1.amazonaws.com/product \
+curl -X POST https://490z9zcjr8.execute-api.ap-southeast-1.amazonaws.com/v1/products \
   -H "Content-Type: application/json" \
   -d '{
     "product_id": "ITEM-001",
@@ -100,7 +103,7 @@ curl -X POST https://490z9zcjr8.execute-api.ap-southeast-1.amazonaws.com/product
 
 **3. Add to Cart:**
 ```bash
-curl -X POST https://490z9zcjr8.execute-api.ap-southeast-1.amazonaws.com/cart \
+curl -X POST https://490z9zcjr8.execute-api.ap-southeast-1.amazonaws.com/v1/cart \
   -H "Content-Type: application/json" \
   -d '{
     "user_id": "user-123",
@@ -111,12 +114,12 @@ curl -X POST https://490z9zcjr8.execute-api.ap-southeast-1.amazonaws.com/cart \
 
 **4. View Cart:**
 ```bash
-curl https://490z9zcjr8.execute-api.ap-southeast-1.amazonaws.com/cart/user-123
+curl https://490z9zcjr8.execute-api.ap-southeast-1.amazonaws.com/v1/cart/user-123
 ```
 
 **5. Create Order:**
 ```bash
-curl -X POST https://490z9zcjr8.execute-api.ap-southeast-1.amazonaws.com/order \
+curl -X POST https://490z9zcjr8.execute-api.ap-southeast-1.amazonaws.com/v1/orders \
   -H "Content-Type: application/json" \
   -d '{
     "user_id": "user-123",
@@ -128,7 +131,7 @@ curl -X POST https://490z9zcjr8.execute-api.ap-southeast-1.amazonaws.com/order \
 
 **6. View Orders:**
 ```bash
-curl https://490z9zcjr8.execute-api.ap-southeast-1.amazonaws.com/order/user/user-123
+curl https://490z9zcjr8.execute-api.ap-southeast-1.amazonaws.com/v1/orders/user/user-123
 ```
 
 ---

@@ -1,6 +1,7 @@
 import { useState } from 'react'
+import { productService } from '../services/api'
 
-export default function AddProduct({ showAlert, apiCall, loadProducts }) {
+export default function AddProduct({ showAlert, loadProducts }) {
   const [formData, setFormData] = useState({
     name: '',
     price: '',
@@ -10,12 +11,15 @@ export default function AddProduct({ showAlert, apiCall, loadProducts }) {
     emoji: '📦'
   })
 
+  const [isSubmitting, setIsSubmitting] = useState(false)
+
   const handleSubmit = async (e) => {
     e.preventDefault()
     const productId = `product-${Date.now()}`
 
+    setIsSubmitting(true)
     try {
-      await apiCall('POST', '/product', {
+      await productService.create({
         product_id: productId,
         name: formData.name,
         price: parseFloat(formData.price),
@@ -33,7 +37,11 @@ export default function AddProduct({ showAlert, apiCall, loadProducts }) {
         emoji: '📦'
       })
       setTimeout(() => loadProducts(), 500)
-    } catch (e) {}
+    } catch (error) {
+      showAlert(error.message, 'error')
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   return (
@@ -104,7 +112,7 @@ export default function AddProduct({ showAlert, apiCall, loadProducts }) {
             </div>
           </div>
           <button type="submit" className="btn-primary">
-            Add Product
+            {isSubmitting ? 'Adding Product...' : 'Add Product'}
           </button>
         </form>
       </div>

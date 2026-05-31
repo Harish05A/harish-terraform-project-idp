@@ -1,7 +1,7 @@
 # E-Commerce Testing Script (PowerShell)
 # Add products, test full flow
 
-$API_URL = "https://490z9zcjr8.execute-api.ap-southeast-1.amazonaws.com"
+$API_URL = "https://490z9zcjr8.execute-api.ap-southeast-1.amazonaws.com/v1"
 $USER_ID = "user-123"
 
 Write-Host "================================" -ForegroundColor Cyan
@@ -91,7 +91,7 @@ $products = @(
 foreach ($product in $products) {
     Write-Host "Adding: $($product.name)" -ForegroundColor Yellow
     $json = $product | ConvertTo-Json
-    $response = Invoke-ApiCall -Method "POST" -Endpoint "/product" -Body $json
+    $response = Invoke-ApiCall -Method "POST" -Endpoint "/products" -Body $json
     if ($response) {
         Write-Host "✓ Added" -ForegroundColor Green
     }
@@ -101,7 +101,7 @@ foreach ($product in $products) {
 # Step 2: List Products
 Write-Host "[Step 2] Listing All Products" -ForegroundColor Blue
 Write-Host ""
-$response = Invoke-ApiCall -Method "GET" -Endpoint "/product"
+$response = Invoke-ApiCall -Method "GET" -Endpoint "/products"
 Write-Host ($response | ConvertTo-Json -Depth 10)
 Write-Host ""
 
@@ -150,7 +150,7 @@ $orderData = @{
 } | ConvertTo-Json
 
 Write-Host "Creating order..." -ForegroundColor Yellow
-$response = Invoke-ApiCall -Method "POST" -Endpoint "/order" -Body $orderData
+$response = Invoke-ApiCall -Method "POST" -Endpoint "/orders" -Body $orderData
 $orderId = $response.data.order_id
 Write-Host ($response | ConvertTo-Json -Depth 10)
 Write-Host ""
@@ -159,7 +159,7 @@ Write-Host ""
 if ($orderId) {
     Write-Host "[Step 7] Viewing Order Details" -ForegroundColor Blue
     Write-Host "Order ID: $orderId" -ForegroundColor Yellow
-    $response = Invoke-ApiCall -Method "GET" -Endpoint "/order/$orderId"
+    $response = Invoke-ApiCall -Method "GET" -Endpoint "/orders/$orderId"
     Write-Host ($response | ConvertTo-Json -Depth 10)
     Write-Host ""
 }
@@ -167,7 +167,7 @@ if ($orderId) {
 # Step 8: View User Orders
 Write-Host "[Step 8] Viewing All User Orders" -ForegroundColor Blue
 Write-Host ""
-$response = Invoke-ApiCall -Method "GET" -Endpoint "/order/user/$USER_ID"
+$response = Invoke-ApiCall -Method "GET" -Endpoint "/orders/user/$USER_ID"
 Write-Host ($response | ConvertTo-Json -Depth 10)
 Write-Host ""
 
