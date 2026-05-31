@@ -1,8 +1,9 @@
 import { useState } from 'react'
 import { orderService } from '../services/api'
 import { getCartItems, getCartTotal } from '../utils/cartStorage'
+import Loader from './Loader'
 
-export default function Cart({ cart, removeFromCart, onCheckout, showAlert }) {
+export default function Cart({ cart, removeFromCart, removingProductIds = {}, onCheckout, showAlert }) {
   const [checkoutData, setCheckoutData] = useState({
     userId: 'user-123',
     email: '',
@@ -10,24 +11,46 @@ export default function Cart({ cart, removeFromCart, onCheckout, showAlert }) {
     paymentMethod: 'CARD'
   })
   const [isCheckingOut, setIsCheckingOut] = useState(false)
+  const [formErrors, setFormErrors] = useState({})
 
   const count = Object.keys(cart).length
   const items = getCartItems(cart)
   const total = getCartTotal(cart)
 
+  const validateCheckout = () => {
+    const errors = {}
+    const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
+    if (!checkoutData.userId.trim()) errors.userId = 'Enter a user ID.'
+    if (!checkoutData.email.trim()) {
+      errors.email = 'Enter an email address.'
+    } else if (!emailPattern.test(checkoutData.email.trim())) {
+      errors.email = 'Enter a valid email address.'
+    }
+    if (!checkoutData.shippingAddress.trim()) errors.shippingAddress = 'Enter a shipping address.'
+
+    setFormErrors(errors)
+    return Object.keys(errors).length === 0
+  }
+
   const handleCheckout = async (e) => {
     e.preventDefault()
     if (count === 0) {
-      showAlert('Cart is empty!', 'error')
+      showAlert('Cart is empty.', 'error')
+      return
+    }
+
+    if (!validateCheckout()) {
+      showAlert('Please fix the checkout details.', 'error')
       return
     }
 
     setIsCheckingOut(true)
     try {
       const orderData = {
-        user_id: checkoutData.userId,
-        email: checkoutData.email,
-        shipping_address: checkoutData.shippingAddress,
+        user_id: checkoutData.userId.trim(),
+        email: checkoutData.email.trim(),
+        shipping_address: checkoutData.shippingAddress.trim(),
         payment_method: checkoutData.paymentMethod
       }
       const orderResponse = await orderService.create(orderData)
@@ -56,14 +79,18 @@ export default function Cart({ cart, removeFromCart, onCheckout, showAlert }) {
         <div className="cart-item" key={item.product_id}>
           <div className="cart-item-info">
             <h4>{item.product_name}</h4>
-            <span>${item.unit_price.toFixed(2)} × {item.quantity}</span>
+            <span>${item.unit_price.toFixed(2)} x {item.quantity}</span>
           </div>
           <div style={{ textAlign: 'right' }}>
             <div className="cart-item-price">
               ${(item.unit_price * item.quantity).toFixed(2)}
             </div>
-            <button className="btn-danger" onClick={() => removeFromCart(item.product_id)}>
-              Remove
+            <button
+              className="btn-danger"
+              onClick={() => removeFromCart(item.product_id)}
+              disabled={Boolean(removingProductIds[item.product_id]) || isCheckingOut}
+            >
+              {removingProductIds[item.product_id] ? 'Removing...' : 'Remove'}
             </button>
           </div>
         </div>
@@ -81,8 +108,10 @@ export default function Cart({ cart, removeFromCart, onCheckout, showAlert }) {
               type="text"
               value={checkoutData.userId}
               onChange={(e) => setCheckoutData(prev => ({ ...prev, userId: e.target.value }))}
+              disabled={isCheckingOut}
               required
             />
+            {formErrors.userId && <div className="field-error">{formErrors.userId}</div>}
           </div>
           <div className="form-group">
             <label>Email</label>
@@ -90,8 +119,10 @@ export default function Cart({ cart, removeFromCart, onCheckout, showAlert }) {
               type="email"
               value={checkoutData.email}
               onChange={(e) => setCheckoutData(prev => ({ ...prev, email: e.target.value }))}
+              disabled={isCheckingOut}
               required
             />
+            {formErrors.email && <div className="field-error">{formErrors.email}</div>}
           </div>
           <div className="form-group">
             <label>Shipping Address</label>
@@ -99,20 +130,24 @@ export default function Cart({ cart, removeFromCart, onCheckout, showAlert }) {
               rows="2"
               value={checkoutData.shippingAddress}
               onChange={(e) => setCheckoutData(prev => ({ ...prev, shippingAddress: e.target.value }))}
+              disabled={isCheckingOut}
               required
             />
+            {formErrors.shippingAddress && <div className="field-error">{formErrors.shippingAddress}</div>}
           </div>
           <div className="form-group">
             <label>Payment Method</label>
             <select
               value={checkoutData.paymentMethod}
               onChange={(e) => setCheckoutData(prev => ({ ...prev, paymentMethod: e.target.value }))}
+              disabled={isCheckingOut}
             >
               <option value="CARD">Credit Card</option>
               <option value="BANK_TRANSFER">Bank Transfer</option>
             </select>
           </div>
-          <button type="submit" className="btn-primary">
+          {isCheckingOut && <Loader message="Placing your order..." />}
+          <button type="submit" className="btn-primary" disabled={isCheckingOut}>
             {isCheckingOut ? 'Placing Order...' : 'Place Order'}
           </button>
         </form>

@@ -12,6 +12,7 @@ import { getCartCount, loadSavedCart, saveCart } from './utils/cartStorage'
 import { getOrderItems } from './utils/orders'
 
 const DEFAULT_USER_ID = 'user-123'
+const PRODUCT_PAGE_SIZE = 12
 
 function App() {
   const { theme, toggleTheme } = useTheme()
@@ -24,7 +25,11 @@ function App() {
   const [reviewSubmitting, setReviewSubmitting] = useState({})
   const [alert, setAlert] = useState({ show: false, message: '', type: '' })
   const [productsLoading, setProductsLoading] = useState(false)
+  const [productsPageLoading, setProductsPageLoading] = useState(false)
   const [productsError, setProductsError] = useState('')
+  const [productsLastKey, setProductsLastKey] = useState(null)
+  const [addingProductIds, setAddingProductIds] = useState({})
+  const [removingProductIds, setRemovingProductIds] = useState({})
   const [ordersLoading, setOrdersLoading] = useState(false)
   const [ordersError, setOrdersError] = useState('')
 
@@ -33,71 +38,102 @@ function App() {
     setTimeout(() => setAlert({ show: false, message: '', type: '' }), 3000)
   }
 
-  const loadProducts = useCallback(async () => {
-    setProductsLoading(true)
+  const loadProducts = useCallback(async ({ append = false, lastKey = null } = {}) => {
+    if (append) {
+      setProductsPageLoading(true)
+    } else {
+      setProductsLoading(true)
+    }
     setProductsError('')
 
     try {
-      const data = await productService.getAll()
-      setProducts(data.data || [])
+      const data = await productService.getAll({
+        limit: PRODUCT_PAGE_SIZE,
+        lastKey
+      })
+      const nextProducts = data.items || data.data || []
+      setProducts((currentProducts) => (append ? [...currentProducts, ...nextProducts] : nextProducts))
+      setProductsLastKey(data.lastKey || null)
     } catch (error) {
+      if (!append) {
+        setProducts([])
+        setProductsLastKey(null)
+      }
       setProductsError(error.message)
       showAlert(error.message, 'error')
     } finally {
-      setProductsLoading(false)
+      if (append) {
+        setProductsPageLoading(false)
+      } else {
+        setProductsLoading(false)
+      }
     }
   }, [])
 
-  const syncCartToBackend = async (cartItems) => {
-    const items = Object.values(cartItems)
-    if (items.length === 0) return
+  const loadMoreProducts = useCallback(() => {
+    if (!productsLastKey || productsPageLoading) return
+    loadProducts({ append: true, lastKey: productsLastKey })
+  }, [loadProducts, productsLastKey, productsPageLoading])
 
-    for (const item of items) {
-      try {
-        await cartService.addItem({
-          user_id: DEFAULT_USER_ID,
-          product_id: item.product_id,
-          quantity: item.quantity
-        })
-      } catch (error) {
-        console.error('Failed to sync cart:', error)
-      }
+  const addToCart = async (productId, name, price) => {
+    if (!productId || Number(price) <= 0) {
+      showAlert('This product cannot be added to the cart.', 'error')
+      return
+    }
+
+    const currentQuantity = cart[productId]?.quantity || 0
+    const nextQuantity = currentQuantity + 1
+    setAddingProductIds((currentState) => ({ ...currentState, [productId]: true }))
+
+    try {
+      await cartService.addItem({
+        user_id: DEFAULT_USER_ID,
+        product_id: productId,
+        quantity: nextQuantity
+      })
+
+      setCart((currentCart) => {
+        const nextCart = { ...currentCart }
+
+        if (productId in nextCart) {
+          nextCart[productId].quantity = nextQuantity
+        } else {
+          nextCart[productId] = {
+            product_id: productId,
+            product_name: name,
+            unit_price: Number(price),
+            quantity: 1
+          }
+        }
+
+        saveCart(nextCart)
+        return nextCart
+      })
+      showAlert(`${name} added to cart`, 'success')
+    } catch (error) {
+      showAlert(error.message, 'error')
+    } finally {
+      setAddingProductIds((currentState) => ({ ...currentState, [productId]: false }))
     }
   }
 
-  const addToCart = (productId, name, price) => {
-    setCart((currentCart) => {
-      const nextCart = { ...currentCart }
+  const removeFromCart = async (productId) => {
+    setRemovingProductIds((currentState) => ({ ...currentState, [productId]: true }))
 
-      if (productId in nextCart) {
-        nextCart[productId].quantity += 1
-      } else {
-        nextCart[productId] = {
-          product_id: productId,
-          product_name: name,
-          unit_price: price,
-          quantity: 1
-        }
-      }
-
-      saveCart(nextCart)
-      syncCartToBackend(nextCart)
-      return nextCart
-    })
-    showAlert(`${name} added to cart`, 'success')
-  }
-
-  const removeFromCart = (productId) => {
-    setCart((currentCart) => {
-      const nextCart = { ...currentCart }
-      delete nextCart[productId]
-      saveCart(nextCart)
-      return nextCart
-    })
-
-    cartService
-      .removeItem(DEFAULT_USER_ID, productId)
-      .catch((error) => console.error('Failed to remove from backend:', error))
+    try {
+      await cartService.removeItem(DEFAULT_USER_ID, productId)
+      setCart((currentCart) => {
+        const nextCart = { ...currentCart }
+        delete nextCart[productId]
+        saveCart(nextCart)
+        return nextCart
+      })
+      showAlert('Cart updated', 'success')
+    } catch (error) {
+      showAlert(error.message, 'error')
+    } finally {
+      setRemovingProductIds((currentState) => ({ ...currentState, [productId]: false }))
+    }
   }
 
   const loadUserOrders = useCallback(async (userId) => {
@@ -170,8 +206,13 @@ function App() {
               <ProductsPage
                 products={products}
                 loading={productsLoading}
+                loadingMore={productsPageLoading}
+                hasMoreProducts={Boolean(productsLastKey)}
                 error={productsError}
                 addToCart={addToCart}
+                addingProductIds={addingProductIds}
+                retryProducts={() => loadProducts()}
+                loadMoreProducts={loadMoreProducts}
               />
             }
           />
@@ -181,7 +222,9 @@ function App() {
               <CartPage
                 cart={cart}
                 removeFromCart={removeFromCart}
+                removingProductIds={removingProductIds}
                 showAlert={showAlert}
+                setCart={setCart}
                 setLatestOrderForReview={setLatestOrderForReview}
                 setPendingRatings={setPendingRatings}
                 setSubmittedReviews={setSubmittedReviews}

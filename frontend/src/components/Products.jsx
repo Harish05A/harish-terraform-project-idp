@@ -1,6 +1,13 @@
 import ProductCard from './ProductCard'
 
-export default function Products({ products, addToCart }) {
+export default function Products({
+  products,
+  addToCart,
+  addingProductIds = {},
+  loadingMore,
+  hasMoreProducts,
+  loadMoreProducts
+}) {
   if (!products || products.length === 0) {
     return <div className="empty-state">No products available</div>
   }
@@ -17,9 +24,22 @@ export default function Products({ products, addToCart }) {
             product={product}
             animationDelay={`${index * 0.05}s`}
             onAddToCart={addToCart}
+            isAdding={Boolean(addingProductIds[product.product_id])}
           />
         ))}
       </div>
+      {hasMoreProducts && (
+        <div className="load-more-row">
+          <button
+            type="button"
+            className="btn-primary load-more-btn"
+            onClick={loadMoreProducts}
+            disabled={loadingMore}
+          >
+            {loadingMore ? 'Loading...' : 'Load More'}
+          </button>
+        </div>
+      )}
     </>
   )
 }

@@ -12,18 +12,41 @@ export async function apiRequest(method, path, data = null) {
     options.body = JSON.stringify(data)
   }
 
-  const response = await fetch(buildApiUrl(path), options)
+  let response
+
+  try {
+    response = await fetch(buildApiUrl(path), options)
+  } catch (error) {
+    throw new Error('Unable to reach the store right now. Please check your connection and try again.')
+  }
+
   const result = await response.json().catch(() => ({}))
 
   if (!response.ok) {
-    throw new Error(result.error || result.message || 'API request failed')
+    const fallbackMessage = response.status >= 500
+      ? 'The store service is having trouble. Please try again in a moment.'
+      : 'We could not complete that request. Please check your details and try again.'
+    throw new Error(result.error || result.message || fallbackMessage)
   }
 
   return result
 }
 
+function withQuery(path, params = {}) {
+  const searchParams = new URLSearchParams()
+
+  Object.entries(params).forEach(([key, value]) => {
+    if (value !== undefined && value !== null && value !== '') {
+      searchParams.set(key, value)
+    }
+  })
+
+  const queryString = searchParams.toString()
+  return queryString ? `${path}?${queryString}` : path
+}
+
 export const productService = {
-  getAll: () => apiRequest('GET', API_PATHS.products),
+  getAll: (params) => apiRequest('GET', withQuery(API_PATHS.products, params)),
   create: (product) => apiRequest('POST', API_PATHS.products, product),
   addReview: (productId, review) => apiRequest('POST', API_PATHS.productReview(productId), review)
 }

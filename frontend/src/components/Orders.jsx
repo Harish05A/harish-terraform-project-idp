@@ -4,9 +4,16 @@ import Loader from './Loader'
 
 export default function Orders({ orders, loadUserOrders, loading, error }) {
   const [userId, setUserId] = useState('user-123')
+  const [formError, setFormError] = useState('')
 
   const handleLoadOrders = () => {
-    loadUserOrders(userId)
+    if (!userId.trim()) {
+      setFormError('Enter a user ID.')
+      return
+    }
+
+    setFormError('')
+    loadUserOrders(userId.trim())
   }
 
   return (
@@ -18,11 +25,13 @@ export default function Orders({ orders, loadUserOrders, loading, error }) {
           value={userId}
           onChange={(e) => setUserId(e.target.value)}
           placeholder="Enter User ID"
+          disabled={loading}
           style={{ maxWidth: '200px' }}
         />
+        {formError && <div className="field-error">{formError}</div>}
         <div className="btn-row">
-          <button onClick={handleLoadOrders} className="btn" style={{ width: 'auto' }}>
-            Load Orders
+          <button onClick={handleLoadOrders} className="btn" style={{ width: 'auto' }} disabled={loading}>
+            {loading ? 'Loading...' : 'Load Orders'}
           </button>
         </div>
       </div>

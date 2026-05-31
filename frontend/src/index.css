@@ -151,6 +151,13 @@ body {
   background: var(--primary-hover);
 }
 
+.btn:disabled,
+.btn-danger:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+  transform: none;
+}
+
 .btn:active {
   transform: scale(0.98);
 }
@@ -275,8 +282,24 @@ body {
   background: var(--primary-hover);
 }
 
+.btn-primary:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+  transform: none;
+}
+
 .btn-primary:active {
   transform: scale(0.98);
+}
+
+.load-more-row {
+  display: flex;
+  justify-content: center;
+  margin-top: 1.5rem;
+}
+
+.load-more-btn {
+  max-width: 220px;
 }
 
 .btn-danger {
@@ -292,6 +315,21 @@ body {
 
 .btn-danger:hover {
   background: #dc2626;
+}
+
+.btn-secondary {
+  background: transparent;
+  border: 1px solid currentColor;
+  border-radius: 6px;
+  color: inherit;
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 600;
+  padding: 0.35rem 0.75rem;
+}
+
+.btn-secondary:hover {
+  background: rgba(239, 68, 68, 0.08);
 }
 
 .order-card {
@@ -504,13 +542,40 @@ nav a.active {
 }
 
 .loader {
+  align-items: center;
   color: var(--text-secondary);
+  display: flex;
+  gap: 0.65rem;
+  justify-content: center;
   text-align: center;
 }
 
+.loader-spinner {
+  animation: spin 0.8s linear infinite;
+  border: 2px solid var(--border);
+  border-top-color: var(--primary);
+  border-radius: 50%;
+  height: 1rem;
+  width: 1rem;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
 .error-message {
+  align-items: center;
   border: 1px solid #fecaca;
   color: var(--danger);
+  display: flex;
+  gap: 1rem;
+  justify-content: space-between;
+}
+
+.field-error {
+  color: var(--danger);
+  font-size: 0.8rem;
+  margin-top: 0.3rem;
 }
 
 .theme-toggle {
