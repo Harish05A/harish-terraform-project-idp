@@ -1,34 +1,26 @@
 import json
-import boto3
 import os
+import sys
 from datetime import datetime
 from decimal import Decimal
 
-def decimal_default(obj):
-    """Handle Decimal serialization for JSON"""
-    if isinstance(obj, Decimal):
-        if obj % 1 == 0:
-            return int(obj)
-        return float(obj)
-    raise TypeError
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-# DynamoDB client
+from shared.dynamodb import get_carts_table as shared_get_carts_table
+from shared.dynamodb import get_products_table as shared_get_products_table
+from shared.logger import get_logger
+from shared.response import error_response, success_response
+from shared.validators import ValidationError, parse_positive_int, validate_required_fields
+
+logger = get_logger(__name__)
+
+
 def get_carts_table():
-    dynamodb = boto3.resource(
-        'dynamodb',
-        region_name=os.environ.get('REGION_NAME', 'ap-southeast-1')
-    )
-    table_name = os.environ.get('CARTS_TABLE', 'harish-tf-carts')
-    return dynamodb.Table(table_name)
+    return shared_get_carts_table()
 
 
 def get_products_table():
-    dynamodb = boto3.resource(
-        'dynamodb',
-        region_name=os.environ.get('REGION_NAME', 'ap-southeast-1')
-    )
-    table_name = os.environ.get('PRODUCTS_TABLE', 'harish-tf-products')
-    return dynamodb.Table(table_name)
+    return shared_get_products_table()
 
 
 def build_cart_payload(user_id, cart, message):
@@ -124,8 +116,11 @@ def lambda_handler(event, context):
         else:
             return error_response(400, "Invalid request")
 
+    except json.JSONDecodeError:
+        logger.warning("Invalid JSON request body")
+        return error_response(400, "Invalid JSON request body")
     except Exception as e:
-        print(f"Error: {str(e)}")
+        logger.exception("Unhandled cart request error")
         return error_response(500, f"Internal server error: {str(e)}")
 
 
@@ -133,19 +128,13 @@ def add_to_cart(body):
     """Add item to user's cart"""
     required_fields = ['user_id', 'product_id', 'quantity']
 
-    for field in required_fields:
-        if field not in body:
-            return error_response(400, f"Missing required field: {field}")
-
     try:
+        validate_required_fields(body, required_fields)
         carts_table = get_carts_table()
         products_table = get_products_table()   
         user_id = str(body['user_id'])
         product_id = str(body['product_id'])
-        quantity = int(body['quantity'])
-
-        if quantity <= 0:
-            return error_response(400, "Quantity must be greater than 0")
+        quantity = parse_positive_int(body['quantity'], 'Quantity')
 
         # Verify product exists
         product_response = products_table.get_item(Key={'product_id': product_id})
@@ -186,7 +175,10 @@ def add_to_cart(body):
             'data': cart
         })
 
+    except ValidationError as e:
+        return error_response(400, str(e))
     except Exception as e:
+        logger.exception("Failed to add to cart")
         return error_response(500, f"Failed to add to cart: {str(e)}")
 
 
@@ -212,6 +204,7 @@ def get_cart(user_id):
         return success_response(200, build_cart_payload(user_id, cart, f"Retrieved cart for {user_id}"))
 
     except Exception as e:
+        logger.exception("Failed to retrieve cart")
         return error_response(500, f"Failed to retrieve cart: {str(e)}")
 
 
@@ -220,10 +213,8 @@ def update_cart_item(user_id, product_id, body):
     try:
         carts_table = get_carts_table()
         products_table = get_products_table()
-        quantity = int(body.get('quantity', 0))
-
-        if quantity <= 0:
-            return error_response(400, "Quantity must be greater than 0")
+        validate_required_fields(body, ['quantity'])
+        quantity = parse_positive_int(body.get('quantity'), 'Quantity')
 
         # Get cart
         response = carts_table.get_item(Key={'user_id': user_id})
@@ -258,7 +249,10 @@ def update_cart_item(user_id, product_id, body):
             'data': cart
         })
 
+    except ValidationError as e:
+        return error_response(400, str(e))
     except Exception as e:
+        logger.exception("Failed to update cart")
         return error_response(500, f"Failed to update cart: {str(e)}")
 
 
@@ -297,6 +291,7 @@ def remove_from_cart(user_id, product_id):
         })
 
     except Exception as e:
+        logger.exception("Failed to remove from cart")
         return error_response(500, f"Failed to remove from cart: {str(e)}")
 
 
@@ -312,22 +307,5 @@ def clear_cart(user_id):
         })
 
     except Exception as e:
+        logger.exception("Failed to clear cart")
         return error_response(500, f"Failed to clear cart: {str(e)}")
-
-
-def success_response(status_code, data):
-    """Return success response"""
-    return {
-        'statusCode': status_code,
-        'headers': {'Content-Type': 'application/json'},
-        'body': json.dumps(data, default=decimal_default)
-    }
-
-
-def error_response(status_code, message):
-    """Return error response"""
-    return {
-        'statusCode': status_code,
-        'headers': {'Content-Type': 'application/json'},
-        'body': json.dumps({'error': message})
-    }

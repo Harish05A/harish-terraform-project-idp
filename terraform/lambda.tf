@@ -5,9 +5,9 @@
 # Automatically zip Product Lambda code
 data "archive_file" "product_lambda_zip" {
   type        = "zip"
-  source_dir  = "${path.module}/../backend/product"
+  source_dir  = "${path.module}/../backend"
   output_path = "${path.module}/../backend/product.zip"
-  excludes    = [".pytest_cache/*", "__pycache__/*"]
+  excludes    = ["cart/*", "order/*", "monitoring/*", "*.zip", "**/.pytest_cache/*", "**/__pycache__/*"]
 }
 
 # Product Lambda Function
@@ -15,16 +15,16 @@ resource "aws_lambda_function" "product" {
   filename      = data.archive_file.product_lambda_zip.output_path
   function_name = "${var.project_name}-product"
   role          = aws_iam_role.product_lambda_role.arn
-  handler       = "lambda_function.lambda_handler"
+  handler       = "product.lambda_function.lambda_handler"
   runtime       = var.python_runtime
 
   source_code_hash = data.archive_file.product_lambda_zip.output_base64sha256
 
   environment {
     variables = {
-      REGION_NAME = var.aws_region
+      REGION_NAME    = var.aws_region
       PRODUCTS_TABLE = "${var.project_name}-products"
-      ORDERS_TABLE = "${var.project_name}-orders"
+      ORDERS_TABLE   = "${var.project_name}-orders"
     }
   }
 
@@ -43,9 +43,9 @@ resource "aws_lambda_function" "product" {
 # Automatically zip Cart Lambda code
 data "archive_file" "cart_lambda_zip" {
   type        = "zip"
-  source_dir  = "${path.module}/../backend/cart"
+  source_dir  = "${path.module}/../backend"
   output_path = "${path.module}/../backend/cart.zip"
-  excludes    = [".pytest_cache/*", "__pycache__/*"]
+  excludes    = ["product/*", "order/*", "monitoring/*", "*.zip", "**/.pytest_cache/*", "**/__pycache__/*"]
 }
 
 # Cart Lambda Function
@@ -53,14 +53,14 @@ resource "aws_lambda_function" "cart" {
   filename      = data.archive_file.cart_lambda_zip.output_path
   function_name = "${var.project_name}-cart"
   role          = aws_iam_role.cart_lambda_role.arn
-  handler       = "lambda_function.lambda_handler"
+  handler       = "cart.lambda_function.lambda_handler"
   runtime       = var.python_runtime
 
   source_code_hash = data.archive_file.cart_lambda_zip.output_base64sha256
 
   environment {
     variables = {
-      REGION_NAME = var.aws_region
+      REGION_NAME    = var.aws_region
       CARTS_TABLE    = "${var.project_name}-carts"
       PRODUCTS_TABLE = "${var.project_name}-products"
     }
@@ -81,9 +81,9 @@ resource "aws_lambda_function" "cart" {
 # Automatically zip Order Lambda code
 data "archive_file" "order_lambda_zip" {
   type        = "zip"
-  source_dir  = "${path.module}/../backend/order"
+  source_dir  = "${path.module}/../backend"
   output_path = "${path.module}/../backend/order.zip"
-  excludes    = [".pytest_cache/*", "__pycache__/*"]
+  excludes    = ["product/*", "cart/*", "monitoring/*", "*.zip", "**/.pytest_cache/*", "**/__pycache__/*"]
 }
 
 # Order Lambda Function
@@ -91,17 +91,17 @@ resource "aws_lambda_function" "order" {
   filename      = data.archive_file.order_lambda_zip.output_path
   function_name = "${var.project_name}-order"
   role          = aws_iam_role.order_lambda_role.arn
-  handler       = "lambda_function.lambda_handler"
+  handler       = "order.lambda_function.lambda_handler"
   runtime       = var.python_runtime
 
   source_code_hash = data.archive_file.order_lambda_zip.output_base64sha256
 
   environment {
     variables = {
-      REGION_NAME = var.aws_region
+      REGION_NAME  = var.aws_region
       ORDERS_TABLE = "${var.project_name}-orders"
       CARTS_TABLE  = "${var.project_name}-carts"
-      TOPIC_ARN  = aws_sns_topic.frontend_alerts.arn
+      TOPIC_ARN    = aws_sns_topic.frontend_alerts.arn
     }
   }
 
@@ -115,27 +115,27 @@ resource "aws_lambda_function" "order" {
 
 data "archive_file" "monitoring_lambda_zip" {
   type        = "zip"
-  source_dir  = "${path.module}/../backend/monitoring"
+  source_dir  = "${path.module}/../backend"
   output_path = "${path.module}/../backend/monitoring.zip"
-  excludes    = [".pytest_cache/*", "__pycache__/*"]
+  excludes    = ["product/*", "cart/*", "order/*", "*.zip", "**/.pytest_cache/*", "**/__pycache__/*"]
 }
 
 resource "aws_lambda_function" "monitor_lambda" {
-   filename      = data.archive_file.monitoring_lambda_zip.output_path
-  function_name = "${var.project_name}-monitor"
+  filename         = data.archive_file.monitoring_lambda_zip.output_path
+  function_name    = "${var.project_name}-monitor"
   source_code_hash = data.archive_file.monitoring_lambda_zip.output_base64sha256
 
-  handler = "lambda_function.lambda_handler"
+  handler = "monitoring.lambda_function.lambda_handler"
   runtime = var.python_runtime
 
   role = aws_iam_role.product_lambda_role.arn
 
   environment {
-  variables = {
-    REGION_NAME = var.aws_region
-    # URL       = "http://wrong-url"
-    URL       = "http://${replace(aws_s3_bucket_website_configuration.frontend.website_endpoint, "http://", "")}"
-    TOPIC_ARN = aws_sns_topic.frontend_alerts.arn
+    variables = {
+      REGION_NAME = var.aws_region
+      # URL       = "http://wrong-url"
+      URL       = "http://${replace(aws_s3_bucket_website_configuration.frontend.website_endpoint, "http://", "")}"
+      TOPIC_ARN = aws_sns_topic.frontend_alerts.arn
+    }
   }
-}
 }

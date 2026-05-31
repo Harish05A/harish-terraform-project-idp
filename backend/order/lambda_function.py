@@ -1,17 +1,21 @@
 import json
 import boto3
 import os
+import sys
 import uuid
 from datetime import datetime, timedelta
 from decimal import Decimal
 
-def decimal_default(obj):
-    """Handle Decimal serialization for JSON"""
-    if isinstance(obj, Decimal):
-        if obj % 1 == 0:
-            return int(obj)
-        return float(obj)
-    raise TypeError
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
+from shared.dynamodb import get_carts_table as shared_get_carts_table
+from shared.dynamodb import get_orders_table as shared_get_orders_table
+from shared.dynamodb import get_region
+from shared.logger import get_logger
+from shared.response import error_response, success_response
+from shared.validators import ValidationError, validate_required_fields
+
+logger = get_logger(__name__)
 
 def get_sns_topic_arn():
     return os.environ.get('TOPIC_ARN', '')
@@ -26,29 +30,19 @@ def publish_sns(subject, message):
     try:
         sns = boto3.client(
             'sns',
-            region_name=os.environ.get('REGION_NAME', 'ap-southeast-1')
+            region_name=get_region()
         )
         sns.publish(TopicArn=topic_arn, Subject=subject, Message=message)
     except Exception as sns_error:
-        print(f"SNS Error: {str(sns_error)}")
+        logger.exception("Failed to publish SNS message")
 
-# DynamoDB client
+
 def get_orders_table():
-    dynamodb = boto3.resource(
-        'dynamodb',
-        region_name=os.environ.get('REGION_NAME', 'ap-southeast-1')
-    )
-    table_name = os.environ.get('ORDERS_TABLE', 'harish-tf-orders')
-    return dynamodb.Table(table_name)
+    return shared_get_orders_table()
 
 
 def get_carts_table():
-    dynamodb = boto3.resource(
-        'dynamodb',
-        region_name=os.environ.get('REGION_NAME', 'ap-southeast-1')
-    )
-    table_name = os.environ.get('CARTS_TABLE', 'harish-tf-carts')
-    return dynamodb.Table(table_name)
+    return shared_get_carts_table()
 
 
 def normalize_cart_items(items):
@@ -119,11 +113,11 @@ def lambda_handler(event, context):
         else:
             return error_response(400, "Invalid request")
 
+    except json.JSONDecodeError:
+        logger.warning("Invalid JSON request body")
+        return error_response(400, "Invalid JSON request body")
     except Exception as e:
-        print(f"Error in create_order: {str(e)}")
-        print(f"Error type: {type(e)}")
-        import traceback
-        traceback.print_exc()
+        logger.exception("Unhandled order request error")
         publish_sns(
             "Order Service Error",
             f"Error occurred in Order Service:\n\n{str(e)}"
@@ -135,11 +129,8 @@ def create_order(body):
     """Create order from cart"""
     required_fields = ['user_id', 'shipping_address', 'email']
 
-    for field in required_fields:
-        if field not in body:
-            return error_response(400, f"Missing required field: {field}")
-
     try:
+        validate_required_fields(body, required_fields)
         user_id = str(body['user_id'])
 
         # Get user's cart
@@ -176,8 +167,7 @@ def create_order(body):
             orders_table = get_orders_table()
             orders_table.put_item(Item=order)
         except Exception as e:
-            print(f"DynamoDB put error: {str(e)}")
-            print(f"Order item: {order}")
+            logger.exception("Failed to save order")
             raise e
 
         # Clear user's cart
@@ -209,7 +199,10 @@ def create_order(body):
             'next_steps': 'Your order has been confirmed. Check your email for updates.'
         })
 
+    except ValidationError as e:
+        return error_response(400, str(e))
     except Exception as e:
+        logger.exception("Failed to create order")
         return error_response(500, f"Failed to create order: {str(e)}")
 
 
@@ -230,6 +223,7 @@ def get_order(order_id):
         })
 
     except Exception as e:
+        logger.exception("Failed to retrieve order")
         return error_response(500, f"Failed to retrieve order: {str(e)}")
 
 
@@ -254,6 +248,7 @@ def get_user_orders(user_id):
         })
 
     except Exception as e:
+        logger.exception("Failed to retrieve user orders")
         return error_response(500, f"Failed to retrieve orders: {str(e)}")
 
 
@@ -286,6 +281,7 @@ def cancel_order(order_id):
         })
 
     except Exception as e:
+        logger.exception("Failed to cancel order")
         return error_response(500, f"Failed to cancel order: {str(e)}")
 
 
@@ -294,21 +290,3 @@ def calculate_delivery_date():
     from datetime import timedelta
     delivery_date = datetime.now() + timedelta(days=7)
     return delivery_date.isoformat()
-
-
-def success_response(status_code, data):
-    """Return success response"""
-    return {
-        'statusCode': status_code,
-        'headers': {'Content-Type': 'application/json'},
-        'body': json.dumps(data, default=decimal_default)
-    }
-
-
-def error_response(status_code, message):
-    """Return error response"""
-    return {
-        'statusCode': status_code,
-        'headers': {'Content-Type': 'application/json'},
-        'body': json.dumps({'error': message})
-    }

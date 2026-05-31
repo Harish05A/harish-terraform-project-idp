@@ -1,32 +1,32 @@
 import json
-import boto3
 import os
+import sys
 from datetime import datetime
 from decimal import Decimal
 
-def decimal_default(obj):
-    """Handle Decimal serialization for JSON"""
-    if isinstance(obj, Decimal):
-        if obj % 1 == 0:
-            return int(obj)
-        return float(obj)
-    raise TypeError
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-# DynamoDB resource
+from shared.dynamodb import get_orders_table as shared_get_orders_table
+from shared.dynamodb import get_products_table
+from shared.logger import get_logger
+from shared.response import error_response, success_response
+from shared.validators import (
+    ValidationError,
+    parse_decimal,
+    parse_non_negative_int,
+    validate_rating,
+    validate_required_fields,
+)
 
-# table_name = os.environ.get('PRODUCTS_TABLE')
+logger = get_logger(__name__)
+
+
 def get_table():
-    dynamodb = boto3.resource(
-        'dynamodb',
-        region_name=os.environ.get('REGION_NAME', 'ap-southeast-1'))
-    return dynamodb.Table(os.environ.get('PRODUCTS_TABLE'))
+    return get_products_table()
 
 
 def get_orders_table():
-    dynamodb = boto3.resource(
-        'dynamodb',
-        region_name=os.environ.get('REGION_NAME', 'ap-southeast-1'))
-    return dynamodb.Table(os.environ.get('ORDERS_TABLE', 'harish-tf-orders'))
+    return shared_get_orders_table()
 
 
 def build_rating_fields(body):
@@ -116,10 +116,11 @@ def lambda_handler(event, context):
         else:
             return error_response(400, "Method not allowed")
 
+    except json.JSONDecodeError:
+        logger.warning("Invalid JSON request body")
+        return error_response(400, "Invalid JSON request body")
     except Exception as e:
-        print(f"Error: {str(e)}")
-        import traceback
-        traceback.print_exc()
+        logger.exception("Unhandled product request error")
         return error_response(500, f"Internal server error: {str(e)}")
 
 
@@ -139,6 +140,7 @@ def get_all_products():
             'count': len(products)
         })
     except Exception as e:
+        logger.exception("Failed to fetch products")
         return error_response(500, f"Failed to fetch products: {str(e)}")
 
 
@@ -146,25 +148,17 @@ def create_product(body):
     """Create a new product"""
     required_fields = ['product_id', 'name', 'price', 'description']
 
-    # Validate required fields
-    for field in required_fields:
-        if field not in body:
-            return error_response(400, f"Missing required field: {field}")
-
     try:
+        validate_required_fields(body, required_fields)
         # Convert price to Decimal
-        price_value = body['price']
-        if isinstance(price_value, str):
-            price = Decimal(price_value)
-        else:
-            price = Decimal(str(price_value))
+        price = parse_decimal(body['price'], 'price')
 
         product = {
             'product_id': str(body['product_id']),
             'name': str(body['name']),
             'price': price,
             'description': str(body['description']),
-            'stock': int(body.get('stock', 0)),
+            'stock': parse_non_negative_int(body.get('stock', 0), 'stock'),
             'created_at': datetime.now().isoformat(),
             'updated_at': datetime.now().isoformat(),
         }
@@ -179,8 +173,10 @@ def create_product(body):
             'message': 'Product created successfully',
             'data': product
         })
+    except ValidationError as e:
+        return error_response(400, str(e))
     except Exception as e:
-        print(f"Create error: {str(e)}")
+        logger.exception("Failed to create product")
         return error_response(500, f"Failed to create product: {str(e)}")
 
 
@@ -201,11 +197,11 @@ def update_product(product_id, body):
         if 'name' in body:
             update_data['name'] = str(body['name'])
         if 'price' in body:
-            update_data['price'] = Decimal(str(body['price']))
+            update_data['price'] = parse_decimal(body['price'], 'price')
         if 'description' in body:
             update_data['description'] = str(body['description'])
         if 'stock' in body:
-            update_data['stock'] = int(body['stock'])
+            update_data['stock'] = parse_non_negative_int(body['stock'], 'stock')
         if any(field in body for field in ['rating', 'rating_average', 'rating_count', 'rating_total']):
             update_data.update(build_rating_fields(body))
 
@@ -229,7 +225,10 @@ def update_product(product_id, body):
             'message': f'Product {product_id} updated successfully',
             'data': response.get('Attributes', update_data)
         })
+    except ValidationError as e:
+        return error_response(400, str(e))
     except Exception as e:
+        logger.exception("Failed to update product")
         return error_response(500, f"Failed to update product: {str(e)}")
 
 
@@ -249,25 +248,15 @@ def delete_product(product_id):
             'message': f'Product {product_id} deleted successfully'
         })
     except Exception as e:
+        logger.exception("Failed to delete product")
         return error_response(500, f"Failed to delete product: {str(e)}")
 
 
 def submit_review(product_id, body):
     """Submit a new star rating for a product."""
-    required_fields = ['user_id', 'order_id', 'rating']
-    for field in required_fields:
-        if field not in body:
-            return error_response(400, f"Missing required field: {field}")
-
     try:
-        rating_value = Decimal(str(body['rating']))
-    except Exception:
-        return error_response(400, "Rating must be a number between 1 and 5")
-
-    if rating_value < 1 or rating_value > 5:
-        return error_response(400, "Rating must be between 1 and 5")
-
-    try:
+        validate_required_fields(body, ['user_id', 'order_id', 'rating'])
+        rating_value = validate_rating(body['rating'])
         orders_table = get_orders_table()
         order_response = orders_table.get_item(Key={'order_id': str(body['order_id'])})
         if 'Item' not in order_response:
@@ -330,32 +319,8 @@ def submit_review(product_id, body):
             'message': f'Review submitted for product {product_id}',
             'data': updated_product
         })
+    except ValidationError as e:
+        return error_response(400, str(e))
     except Exception as e:
+        logger.exception("Failed to submit review")
         return error_response(500, f"Failed to submit review: {str(e)}")
-
-
-def success_response(status_code, data):
-    """Return success response"""
-    return {
-        'statusCode': status_code,
-        'headers': {
-            'Content-Type': 'application/json',
-            'Access-Control-Allow-Origin': '*',
-            'Access-Control-Allow-Headers': 'Content-Type,Authorization',
-            'Access-Control-Allow-Methods': 'GET,POST,PUT,DELETE,OPTIONS'
-        },
-        'body': json.dumps(data, default=decimal_default)
-    }
-
-
-def error_response(status_code, message):
-    return {
-        'statusCode': status_code,
-        'headers': {
-            'Content-Type': 'application/json',
-            'Access-Control-Allow-Origin': '*',
-            'Access-Control-Allow-Headers': 'Content-Type,Authorization',
-            'Access-Control-Allow-Methods': 'GET,POST,PUT,DELETE,OPTIONS'
-        },
-        'body': json.dumps({'error': message})
-    }
