@@ -37,7 +37,7 @@ function withQuery(path, params = {}) {
 
   Object.entries(params).forEach(([key, value]) => {
     if (value !== undefined && value !== null && value !== '') {
-      searchParams.set(key, value)
+      searchParams.set(key, typeof value === 'object' ? JSON.stringify(value) : value)
     }
   })
 

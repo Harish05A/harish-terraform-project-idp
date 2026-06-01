@@ -19,6 +19,8 @@ from shared.validators import (
 )
 
 logger = get_logger(__name__)
+DEFAULT_PRODUCT_LIMIT = 10
+MAX_PRODUCT_LIMIT = 50
 
 
 def get_table():
@@ -65,6 +67,40 @@ def serialize_product(product):
     return product
 
 
+def get_product_route_parts(path):
+    """Return route parts after /product or /v1/products."""
+    parts = [part for part in path.strip('/').split('/') if part]
+    if len(parts) >= 2 and parts[0] == 'v1' and parts[1] == 'products':
+        return parts[2:]
+    if parts and parts[0] in ('product', 'products'):
+        return parts[1:]
+    return []
+
+
+def parse_product_limit(value):
+    if value in (None, ''):
+        return DEFAULT_PRODUCT_LIMIT
+    try:
+        limit = int(value)
+    except (TypeError, ValueError):
+        raise ValidationError("limit must be a valid integer")
+    if limit <= 0:
+        raise ValidationError("limit must be greater than 0")
+    return min(limit, MAX_PRODUCT_LIMIT)
+
+
+def parse_last_key(value):
+    if not value:
+        return None
+    try:
+        parsed = json.loads(value)
+    except (TypeError, ValueError, json.JSONDecodeError):
+        raise ValidationError("lastKey must be valid JSON")
+    if not isinstance(parsed, dict) or not parsed:
+        raise ValidationError("lastKey must be a non-empty object")
+    return parsed
+
+
 def get_order_items(order):
     """Normalize order items into a list for validation."""
     items = order.get('items', {})
@@ -84,33 +120,33 @@ def lambda_handler(event, context):
 
     http_method = event.get('requestContext', {}).get('http', {}).get('method', 'GET')
     path = event.get('rawPath') or '/product'
-    path_parts = path.strip('/').split('/')
+    route_parts = get_product_route_parts(path)
 
     try:
         # GET /product - List all products
-        if http_method == 'GET' and path == '/product':
-            return get_all_products()
+        if http_method == 'GET' and len(route_parts) == 0:
+            return get_all_products(event)
 
         # POST /product - Add new product
-        elif http_method == 'POST' and path == '/product':
+        elif http_method == 'POST' and len(route_parts) == 0:
             body = json.loads(event.get('body', '{}'))
             return create_product(body)
 
         # POST /product/{id}/review - Submit a product rating
-        elif http_method == 'POST' and len(path_parts) == 3 and path_parts[0] == 'product' and path_parts[2] == 'review':
-            product_id = path_parts[1]
+        elif http_method == 'POST' and len(route_parts) == 2 and route_parts[1] == 'review':
+            product_id = route_parts[0]
             body = json.loads(event.get('body', '{}'))
             return submit_review(product_id, body)
 
         # PUT /product/{id} - Update product
-        elif http_method == 'PUT' and len(path_parts) == 2 and path_parts[0] == 'product':
-            product_id = path.split('/')[-1]
+        elif http_method == 'PUT' and len(route_parts) == 1:
+            product_id = route_parts[0]
             body = json.loads(event.get('body', '{}'))
             return update_product(product_id, body)
 
         # DELETE /product/{id} - Delete product
-        elif http_method == 'DELETE' and len(path_parts) == 2 and path_parts[0] == 'product':
-            product_id = path.split('/')[-1]
+        elif http_method == 'DELETE' and len(route_parts) == 1:
+            product_id = route_parts[0]
             return delete_product(product_id)
 
         else:
@@ -124,21 +160,35 @@ def lambda_handler(event, context):
         return error_response(500, f"Internal server error: {str(e)}")
 
 
-def get_all_products():
-    """Fetch all products from DynamoDB"""
+def get_all_products(event):
+    """Fetch a page of products from DynamoDB."""
     try:
         table = get_table()
-        response = table.scan()
+        query_params = event.get('queryStringParameters') or {}
+        limit = parse_product_limit(query_params.get('limit'))
+        last_key = parse_last_key(query_params.get('lastKey'))
+
+        scan_args = {'Limit': limit}
+        if last_key:
+            scan_args['ExclusiveStartKey'] = last_key
+
+        logger.info("Fetching products page limit=%s has_last_key=%s", limit, bool(last_key))
+        response = table.scan(**scan_args)
         products = response.get('Items', [])
 
         for product in products:
             serialize_product(product)
 
+        last_evaluated_key = response.get('LastEvaluatedKey')
         return success_response(200, {
             'message': f'Retrieved {len(products)} products',
             'data': products,
-            'count': len(products)
+            'items': products,
+            'count': len(products),
+            'lastKey': last_evaluated_key
         })
+    except ValidationError as e:
+        return error_response(400, str(e))
     except Exception as e:
         logger.exception("Failed to fetch products")
         return error_response(500, f"Failed to fetch products: {str(e)}")

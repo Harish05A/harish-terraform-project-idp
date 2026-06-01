@@ -70,6 +70,47 @@ def test_get_all_products(monkeypatch):
     assert body['data'][0]['rating_average'] == 4.5
     assert body['data'][0]['rating_count'] == 2
     assert body['data'][0]['rating_total'] == 9
+    assert body['items'][0]['product_id'] == "1"
+    assert body['lastKey'] is None
+    fake_table.scan.assert_called_once_with(Limit=10)
+
+
+def test_get_all_products_with_pagination(monkeypatch):
+    fake_table = MagicMock()
+
+    fake_table.scan.return_value = {
+        "Items": [
+            {
+                "product_id": "2",
+                "name": "Laptop",
+                "price": 1500,
+                "description": "Portable computer"
+            }
+        ],
+        "LastEvaluatedKey": {"product_id": "2"}
+    }
+
+    monkeypatch.setattr(lf, "get_table", lambda: fake_table)
+
+    event = {
+        "requestContext": {"http": {"method": "GET"}},
+        "rawPath": "/v1/products",
+        "queryStringParameters": {
+            "limit": "5",
+            "lastKey": json.dumps({"product_id": "1"})
+        }
+    }
+
+    response = lf.lambda_handler(event, None)
+    body = json.loads(response['body'])
+
+    assert response['statusCode'] == 200
+    assert body['items'][0]['product_id'] == "2"
+    assert body['lastKey'] == {"product_id": "2"}
+    fake_table.scan.assert_called_once_with(
+        Limit=5,
+        ExclusiveStartKey={"product_id": "1"}
+    )
 
 
 # ------------------------
@@ -225,7 +266,7 @@ def test_submit_review_success(monkeypatch):
 
     event = {
         "requestContext": {"http": {"method": "POST"}},
-        "rawPath": "/product/1/review",
+        "rawPath": "/v1/products/1/review",
         "body": json.dumps({
             "user_id": "user-123",
             "order_id": "order-123",

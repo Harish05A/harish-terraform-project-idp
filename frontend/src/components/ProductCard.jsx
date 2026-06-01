@@ -8,7 +8,7 @@ function RatingStars({ rating }) {
   )
 }
 
-export default function ProductCard({ product, animationDelay = '0s', onAddToCart }) {
+export default function ProductCard({ product, animationDelay = '0s', onAddToCart, isAdding = false }) {
   const ratingAverage = Number(product.rating_average ?? product.rating ?? 0)
   const ratingCount = Number(product.rating_count ?? 0)
 
@@ -29,8 +29,9 @@ export default function ProductCard({ product, animationDelay = '0s', onAddToCar
           <button
             className="btn"
             onClick={() => onAddToCart(product.product_id, product.name, product.price)}
+            disabled={isAdding}
           >
-            Add to Cart
+            {isAdding ? 'Adding...' : 'Add to Cart'}
           </button>
         </div>
       </div>

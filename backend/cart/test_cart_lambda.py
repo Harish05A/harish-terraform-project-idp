@@ -181,6 +181,54 @@ def test_add_to_cart_normalizes_legacy_list_cart(monkeypatch):
     assert body["data"]["items"]["p2"]["product_name"] == "Laptop"
 
 
+def test_add_to_cart_increments_existing_item(monkeypatch):
+    fake_carts = MagicMock()
+    fake_products = MagicMock()
+
+    fake_products.get_item.return_value = {
+        "Item": {
+            "product_id": "p1",
+            "name": "Phone",
+            "price": 1000
+        }
+    }
+
+    fake_carts.get_item.return_value = {
+        "Item": {
+            "user_id": "1",
+            "items": {
+                "p1": {
+                    "product_id": "p1",
+                    "product_name": "Phone",
+                    "unit_price": 1000,
+                    "quantity": 1,
+                    "total_price": 1000
+                }
+            }
+        }
+    }
+
+    monkeypatch.setattr(lf, "get_carts_table", lambda: fake_carts)
+    monkeypatch.setattr(lf, "get_products_table", lambda: fake_products)
+
+    event = {
+        "requestContext": {"http": {"method": "POST"}},
+        "rawPath": "/v1/cart",
+        "body": json.dumps({
+            "user_id": "1",
+            "product_id": "p1",
+            "quantity": 1
+        })
+    }
+
+    response = lf.lambda_handler(event, None)
+    body = json.loads(response["body"])
+
+    assert response["statusCode"] == 200
+    assert body["data"]["items"]["p1"]["quantity"] == 2
+    assert body["data"]["total_items"] == 2
+
+
 # ------------------------
 # TEST REMOVE FROM CART
 # ------------------------
@@ -211,6 +259,38 @@ def test_remove_from_cart(monkeypatch):
 
     assert response['statusCode'] == 200
     fake_carts.put_item.assert_called_once()
+
+
+def test_remove_from_cart_accepts_v1_path(monkeypatch):
+    fake_carts = MagicMock()
+
+    fake_carts.get_item.return_value = {
+        "Item": {
+            "user_id": "1",
+            "items": {
+                "p1": {
+                    "product_id": "p1",
+                    "product_name": "Phone",
+                    "quantity": 1,
+                    "total_price": 1000
+                }
+            }
+        }
+    }
+
+    monkeypatch.setattr(lf, "get_carts_table", lambda: fake_carts)
+
+    event = {
+        "requestContext": {"http": {"method": "DELETE"}},
+        "rawPath": "/v1/cart/1/p1"
+    }
+
+    response = lf.lambda_handler(event, None)
+    body = json.loads(response["body"])
+
+    assert response["statusCode"] == 200
+    assert body["data"]["items"] == {}
+    assert body["data"]["total_items"] == 0
 
 
 # ------------------------

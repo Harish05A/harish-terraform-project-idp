@@ -52,7 +52,13 @@ function App() {
         lastKey
       })
       const nextProducts = data.items || data.data || []
-      setProducts((currentProducts) => (append ? [...currentProducts, ...nextProducts] : nextProducts))
+      setProducts((currentProducts) => {
+        if (!append) return nextProducts
+
+        const existingIds = new Set(currentProducts.map(product => product.product_id))
+        const uniqueProducts = nextProducts.filter(product => !existingIds.has(product.product_id))
+        return [...currentProducts, ...uniqueProducts]
+      })
       setProductsLastKey(data.lastKey || null)
     } catch (error) {
       if (!append) {
@@ -81,19 +87,19 @@ function App() {
       return
     }
 
-    const currentQuantity = cart[productId]?.quantity || 0
-    const nextQuantity = currentQuantity + 1
     setAddingProductIds((currentState) => ({ ...currentState, [productId]: true }))
 
     try {
       await cartService.addItem({
         user_id: DEFAULT_USER_ID,
         product_id: productId,
-        quantity: nextQuantity
+        quantity: 1
       })
 
       setCart((currentCart) => {
         const nextCart = { ...currentCart }
+        const currentQuantity = nextCart[productId]?.quantity || 0
+        const nextQuantity = currentQuantity + 1
 
         if (productId in nextCart) {
           nextCart[productId].quantity = nextQuantity

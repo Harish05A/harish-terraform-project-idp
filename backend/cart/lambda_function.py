@@ -74,6 +74,23 @@ def normalize_cart(cart, user_id):
     normalized_cart['updated_at'] = cart.get('updated_at')
     return normalized_cart
 
+
+def get_cart_route_parts(path):
+    """Return route parts after the cart segment for /cart and /v1/cart paths."""
+    parts = [part for part in path.split('/') if part]
+    if len(parts) >= 2 and parts[0] == 'v1' and parts[1] == 'cart':
+        return parts[2:]
+    if parts and parts[0] == 'cart':
+        return parts[1:]
+    return []
+
+
+def recalculate_cart_totals(cart):
+    cart['total_items'] = sum(item['quantity'] for item in cart['items'].values())
+    cart['total_price'] = sum(item['total_price'] for item in cart['items'].values())
+    return cart
+
+
 def lambda_handler(event, context):
     """
     Cart Lambda Handler
@@ -82,35 +99,33 @@ def lambda_handler(event, context):
 
     http_method = event.get('requestContext', {}).get('http', {}).get('method', 'GET')
     path = event.get('rawPath', '/')
-    path_parts = path.split('/')
+    route_parts = get_cart_route_parts(path)
 
     try:
         # POST /cart - Add item to cart
-        if http_method == 'POST':
+        if http_method == 'POST' and len(route_parts) == 0:
             body = json.loads(event.get('body', '{}'))
             return add_to_cart(body)
 
         # GET /cart/{user_id} - Get user's cart
-        elif http_method == 'GET' and len(path_parts) >= 3:
-            user_id = path_parts[2]
+        elif http_method == 'GET' and len(route_parts) == 1:
+            user_id = route_parts[0]
             return get_cart(user_id)
 
         # PUT /cart/{user_id}/{product_id} - Update quantity
-        elif http_method == 'PUT' and len(path_parts) >= 4:
-            user_id = path_parts[2]
-            product_id = path_parts[3]
+        elif http_method == 'PUT' and len(route_parts) == 2:
+            user_id, product_id = route_parts
             body = json.loads(event.get('body', '{}'))
             return update_cart_item(user_id, product_id, body)
 
         # DELETE /cart/{user_id}/{product_id} - Remove item
-        elif http_method == 'DELETE' and len(path_parts) >= 4:
-            user_id = path_parts[2]
-            product_id = path_parts[3]
+        elif http_method == 'DELETE' and len(route_parts) == 2:
+            user_id, product_id = route_parts
             return remove_from_cart(user_id, product_id)
 
         # DELETE /cart/{user_id} - Clear entire cart
-        elif http_method == 'DELETE' and len(path_parts) >= 3:
-            user_id = path_parts[2]
+        elif http_method == 'DELETE' and len(route_parts) == 1:
+            user_id = route_parts[0]
             return clear_cart(user_id)
 
         else:
@@ -153,20 +168,22 @@ def add_to_cart(body):
         })
         cart = normalize_cart(cart, user_id)
 
-        # Add or update item in cart
+        current_item = cart['items'].get(product_id)
+        next_quantity = quantity
+        if current_item:
+            next_quantity = int(current_item.get('quantity', 0)) + quantity
+
+        # Add or update item in cart. POST means "add this quantity", not "set absolute quantity".
         cart['items'][product_id] = {
             'product_id': product_id,
             'product_name': product['name'],
             'unit_price': product['price'],  # Keep as Decimal
-            'quantity': quantity,
-            'total_price': product['price'] * quantity  # Keep as Decimal
+            'quantity': next_quantity,
+            'total_price': product['price'] * next_quantity  # Keep as Decimal
         }
 
         cart['updated_at'] = datetime.now().isoformat()
-
-        # Calculate cart total
-        cart['total_items'] = sum(item['quantity'] for item in cart['items'].values())
-        cart['total_price'] = sum(item['total_price'] for item in cart['items'].values())
+        recalculate_cart_totals(cart)
 
         carts_table.put_item(Item=cart)
 
@@ -238,9 +255,7 @@ def update_cart_item(user_id, product_id, body):
         cart['items'][product_id]['total_price'] = product['price'] * quantity
         cart['updated_at'] = datetime.now().isoformat()
 
-        # Recalculate totals
-        cart['total_items'] = sum(item['quantity'] for item in cart['items'].values())
-        cart['total_price'] = sum(item['total_price'] for item in cart['items'].values())
+        recalculate_cart_totals(cart)
 
         carts_table.put_item(Item=cart)
 
@@ -275,13 +290,7 @@ def remove_from_cart(user_id, product_id):
         del cart['items'][product_id]
         cart['updated_at'] = datetime.now().isoformat()
 
-        # Recalculate totals
-        if cart['items']:
-            cart['total_items'] = sum(item['quantity'] for item in cart['items'].values())
-            cart['total_price'] = sum(item['total_price'] for item in cart['items'].values())
-        else:
-            cart['total_items'] = 0
-            cart['total_price'] = 0
+        recalculate_cart_totals(cart)
 
         carts_table.put_item(Item=cart)
 

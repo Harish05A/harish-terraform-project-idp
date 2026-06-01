@@ -4,6 +4,7 @@ import Cart from '../components/Cart'
 export default function CartPage({
   cart,
   removeFromCart,
+  removingProductIds,
   showAlert,
   setLatestOrderForReview,
   setPendingRatings,
@@ -24,6 +25,7 @@ export default function CartPage({
     <Cart
       cart={cart}
       removeFromCart={removeFromCart}
+      removingProductIds={removingProductIds}
       onCheckout={handleCheckout}
       showAlert={showAlert}
     />
