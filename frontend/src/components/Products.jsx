@@ -1,6 +1,8 @@
 import { useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
 import ProductCard from './ProductCard'
 import { enrichProduct, priceRanges } from '../utils/productCatalog'
+import { productService } from '../services/api'
 
 export default function Products({
   products,
@@ -9,7 +11,10 @@ export default function Products({
   addingProductIds = {},
   loadingMore,
   hasMoreProducts,
-  loadMoreProducts
+  loadMoreProducts,
+  isAdminView = false,
+  showAlert,
+  loadProducts
 }) {
   const [filters, setFilters] = useState({
     search: '',
@@ -17,15 +22,16 @@ export default function Products({
     priceRange: 'all',
     sort: 'newest'
   })
+  const [deletingIds, setDeletingIds] = useState({})
 
   const enrichedProducts = useMemo(() => (products || []).map(enrichProduct), [products])
   const categories = useMemo(
-    () => ['all', ...new Set(enrichedProducts.map((product) => product.category).filter(Boolean))],
+    () => ['all', ...new Set(enrichedProducts.map((p) => p.category).filter(Boolean))],
     [enrichedProducts]
   )
 
   const visibleProducts = useMemo(() => {
-    const selectedRange = priceRanges.find((range) => range.value === filters.priceRange) || priceRanges[0]
+    const selectedRange = priceRanges.find((r) => r.value === filters.priceRange) || priceRanges[0]
     const searchTerm = filters.search.trim().toLowerCase()
 
     return enrichedProducts
@@ -46,26 +52,48 @@ export default function Products({
       })
   }, [enrichedProducts, filters])
 
-  const updateFilter = (key, value) => {
-    setFilters((current) => ({ ...current, [key]: value }))
+  const updateFilter = (key, value) => setFilters((c) => ({ ...c, [key]: value }))
+
+  const handleDelete = async (productId, productName) => {
+    if (!window.confirm(`Delete "${productName}"? This cannot be undone.`)) return
+    setDeletingIds(s => ({ ...s, [productId]: true }))
+    try {
+      await productService.delete(productId)
+      showAlert(`"${productName}" deleted.`, 'success')
+      if (loadProducts) loadProducts()
+    } catch (error) {
+      showAlert(error.message, 'error')
+    } finally {
+      setDeletingIds(s => ({ ...s, [productId]: false }))
+    }
   }
 
   return (
     <>
-      <section className="store-hero">
-        <div>
-          <p className="eyebrow">Curated tech essentials</p>
-          <h1>Shop smarter gear for work, play, and everyday life.</h1>
-          <p className="hero-copy">
-            Browse polished product picks with quick cart actions, helpful ratings, and simple filters.
-          </p>
+      {isAdminView ? (
+        <div className="page-header">
+          <div>
+            <p className="eyebrow">Admin Panel</p>
+            <h1 className="page-title">Product Catalog</h1>
+          </div>
+          <Link to="/add-product" className="btn-action">+ Add Product</Link>
         </div>
-        <div className="hero-stats" aria-label="Store highlights">
-          <span><strong>{enrichedProducts.length}</strong> products</span>
-          <span><strong>{Object.keys(cart).length}</strong> in cart</span>
-          <span><strong>5</strong> categories</span>
-        </div>
-      </section>
+      ) : (
+        <section className="store-hero">
+          <div>
+            <p className="eyebrow">Curated tech essentials</p>
+            <h1>Shop smarter gear for work, play, and everyday life.</h1>
+            <p className="hero-copy">
+              Browse polished product picks with quick cart actions, helpful ratings, and simple filters.
+            </p>
+          </div>
+          <div className="hero-stats" aria-label="Store highlights">
+            <span><strong>{enrichedProducts.length}</strong> products</span>
+            <span><strong>{Object.keys(cart).length}</strong> in cart</span>
+            <span><strong>5</strong> categories</span>
+          </div>
+        </section>
+      )}
 
       <section className="browse-toolbar" aria-label="Product filters">
         <div className="search-field">
@@ -74,44 +102,30 @@ export default function Products({
             id="product-search"
             type="search"
             value={filters.search}
-            onChange={(event) => updateFilter('search', event.target.value)}
+            onChange={(e) => updateFilter('search', e.target.value)}
             placeholder="Search laptops, audio, watches..."
           />
         </div>
         <div className="filter-grid">
           <div className="form-group compact">
             <label htmlFor="category-filter">Category</label>
-            <select
-              id="category-filter"
-              value={filters.category}
-              onChange={(event) => updateFilter('category', event.target.value)}
-            >
-              {categories.map((category) => (
-                <option key={category} value={category}>
-                  {category === 'all' ? 'All Categories' : category}
-                </option>
+            <select id="category-filter" value={filters.category} onChange={(e) => updateFilter('category', e.target.value)}>
+              {categories.map((cat) => (
+                <option key={cat} value={cat}>{cat === 'all' ? 'All Categories' : cat}</option>
               ))}
             </select>
           </div>
           <div className="form-group compact">
             <label htmlFor="price-filter">Price</label>
-            <select
-              id="price-filter"
-              value={filters.priceRange}
-              onChange={(event) => updateFilter('priceRange', event.target.value)}
-            >
-              {priceRanges.map((range) => (
-                <option key={range.value} value={range.value}>{range.label}</option>
+            <select id="price-filter" value={filters.priceRange} onChange={(e) => updateFilter('priceRange', e.target.value)}>
+              {priceRanges.map((r) => (
+                <option key={r.value} value={r.value}>{r.label}</option>
               ))}
             </select>
           </div>
           <div className="form-group compact">
             <label htmlFor="sort-filter">Sort</label>
-            <select
-              id="sort-filter"
-              value={filters.sort}
-              onChange={(event) => updateFilter('sort', event.target.value)}
-            >
+            <select id="sort-filter" value={filters.sort} onChange={(e) => updateFilter('sort', e.target.value)}>
               <option value="newest">Newest</option>
               <option value="price-asc">Price Low to High</option>
               <option value="price-desc">Price High to Low</option>
@@ -123,11 +137,12 @@ export default function Products({
 
       <div className="section-heading">
         <div>
-          <p className="eyebrow">Featured catalog</p>
-          <h2>Popular Products</h2>
+          <p className="eyebrow">{isAdminView ? 'Manage catalog' : 'Featured catalog'}</p>
+          <h2>{isAdminView ? 'All Products' : 'Popular Products'}</h2>
         </div>
         <span>{visibleProducts.length} shown</span>
       </div>
+
       {visibleProducts.length === 0 ? (
         <div className="empty-state">No products match your filters</div>
       ) : (
@@ -140,10 +155,14 @@ export default function Products({
               animationDelay={`${index * 0.05}s`}
               onAddToCart={addToCart}
               isAdding={Boolean(addingProductIds[product.product_id])}
+              isAdminView={isAdminView}
+              onDelete={handleDelete}
+              isDeleting={Boolean(deletingIds[product.product_id])}
             />
           ))}
         </div>
       )}
+
       {hasMoreProducts && (
         <div className="load-more-row">
           <button
@@ -156,7 +175,12 @@ export default function Products({
           </button>
         </div>
       )}
-      <footer className="store-footer">Serverless commerce demo powered by React, AWS Lambda, API Gateway, DynamoDB, and Terraform.</footer>
+
+      {!isAdminView && (
+        <footer className="store-footer">
+          Serverless commerce demo powered by React, AWS Lambda, API Gateway, DynamoDB, and Terraform.
+        </footer>
+      )}
     </>
   )
 }

@@ -62,6 +62,8 @@ function withQuery(path, params = {}) {
 export const productService = {
   getAll: (params) => apiRequest('GET', withQuery(API_PATHS.products, params)),
   create: (product) => apiRequest('POST', API_PATHS.products, product),
+  update: (productId, data) => apiRequest('PUT', API_PATHS.product(productId), data),
+  delete: (productId) => apiRequest('DELETE', API_PATHS.product(productId)),
   addReview: (productId, review) => apiRequest('POST', API_PATHS.productReview(productId), review)
 }
 
@@ -75,5 +77,9 @@ export const cartService = {
 
 export const orderService = {
   create: (order) => apiRequest('POST', API_PATHS.orders, order),
-  getByUser: (userId) => apiRequest('GET', API_PATHS.userOrders(userId))
+  getAll: () => apiRequest('GET', API_PATHS.orders),
+  getByUser: (userId) => apiRequest('GET', API_PATHS.userOrders(userId)),
+  getById: (orderId) => apiRequest('GET', API_PATHS.order(orderId)),
+  updateStatus: (orderId, status) => apiRequest('PUT', API_PATHS.orderStatus(orderId), { status }),
+  cancel: (orderId) => apiRequest('DELETE', API_PATHS.order(orderId))
 }

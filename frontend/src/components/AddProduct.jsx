@@ -7,8 +7,7 @@ export default function AddProduct({ showAlert, loadProducts }) {
     price: '',
     description: '',
     stock: 10,
-    rating: 5,
-    emoji: '📦'
+    rating: 5
   })
 
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -27,14 +26,14 @@ export default function AddProduct({ showAlert, loadProducts }) {
         stock: parseInt(formData.stock),
         rating: parseFloat(formData.rating)
       })
-      showAlert('Product added!', 'success')
+      console.info('frontend_admin_event', { action: 'create_product', productId, name: formData.name })
+      showAlert('Product added successfully!', 'success')
       setFormData({
         name: '',
         price: '',
         description: '',
         stock: 10,
-        rating: 5,
-        emoji: '📦'
+        rating: 5
       })
       setTimeout(() => loadProducts(), 500)
     } catch (error) {
@@ -46,7 +45,12 @@ export default function AddProduct({ showAlert, loadProducts }) {
 
   return (
     <>
-      <div className="section-title">Add New Product</div>
+      <div className="page-header">
+        <div>
+          <p className="eyebrow">Admin Panel</p>
+          <h1 className="page-title">Add New Product</h1>
+        </div>
+      </div>
       <div className="form-add-product">
         <form onSubmit={handleSubmit}>
           <div className="form-row">
@@ -99,15 +103,6 @@ export default function AddProduct({ showAlert, loadProducts }) {
                 max="5"
                 step="0.1"
                 required
-              />
-            </div>
-            <div className="form-group">
-              <label>Icon (emoji)</label>
-              <input
-                type="text"
-                value={formData.emoji}
-                onChange={(e) => setFormData(prev => ({ ...prev, emoji: e.target.value }))}
-                maxLength="2"
               />
             </div>
           </div>

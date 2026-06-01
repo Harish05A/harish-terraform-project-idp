@@ -13,6 +13,7 @@ export const API_PATHS = {
   cartItem: (userId, productId) => `${API_PREFIX}/cart/${userId}/${productId}`,
   orders: `${API_PREFIX}/orders`,
   order: (orderId) => `${API_PREFIX}/orders/${orderId}`,
+  orderStatus: (orderId) => `${API_PREFIX}/orders/${orderId}/status`,
   userOrders: (userId) => `${API_PREFIX}/orders/user/${userId}`
 }
 

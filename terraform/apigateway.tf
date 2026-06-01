@@ -111,6 +111,10 @@ locals {
   }
 
   v1_order_routes = {
+    order_get_all = {
+      route_key    = "GET /v1/orders"
+      rewrite_path = "/order"
+    }
     order_get = {
       route_key    = "GET /v1/orders/{order_id}"
       rewrite_path = "/order/$request.path.order_id"
@@ -126,6 +130,10 @@ locals {
     order_delete = {
       route_key    = "DELETE /v1/orders/{order_id}"
       rewrite_path = "/order/$request.path.order_id"
+    }
+    order_put_status = {
+      route_key    = "PUT /v1/orders/{order_id}/status"
+      rewrite_path = "/order/$request.path.order_id/status"
     }
   }
 }
@@ -265,6 +273,12 @@ resource "aws_apigatewayv2_route" "order_get" {
   target    = "integrations/${aws_apigatewayv2_integration.order_lambda.id}"
 }
 
+resource "aws_apigatewayv2_route" "order_get_all" {
+  api_id    = aws_apigatewayv2_api.product_api.id
+  route_key = "GET /order"
+  target    = "integrations/${aws_apigatewayv2_integration.order_lambda.id}"
+}
+
 resource "aws_apigatewayv2_route" "order_get_user" {
   api_id    = aws_apigatewayv2_api.product_api.id
   route_key = "GET /order/user/{user_id}"
@@ -280,6 +294,12 @@ resource "aws_apigatewayv2_route" "order_post" {
 resource "aws_apigatewayv2_route" "order_delete" {
   api_id    = aws_apigatewayv2_api.product_api.id
   route_key = "DELETE /order/{order_id}"
+  target    = "integrations/${aws_apigatewayv2_integration.order_lambda.id}"
+}
+
+resource "aws_apigatewayv2_route" "order_put_status" {
+  api_id    = aws_apigatewayv2_api.product_api.id
+  route_key = "PUT /order/{order_id}/status"
   target    = "integrations/${aws_apigatewayv2_integration.order_lambda.id}"
 }
 

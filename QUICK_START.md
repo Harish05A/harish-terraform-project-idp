@@ -43,7 +43,7 @@ curl https://490z9zcjr8.execute-api.ap-southeast-1.amazonaws.com/v1/orders/user/
 
 ---
 
-## 🧪 Run Tests
+##  Run Tests
 
 ```bash
 # From project directory
@@ -87,7 +87,7 @@ user-123
 
 ---
 
-## 📋 Pre-loaded Products
+##  Pre-loaded Products
 
 | Product ID | Name | Price | Stock |
 |-----------|------|-------|-------|
@@ -100,12 +100,12 @@ user-123
 
 ---
 
-## 💰 Cost Per Month
+##  Cost Per Month
 **~$0-5 USD** (mostly free tier)
 
 ---
 
-## 📂 File Locations
+##  File Locations
 
 | Name | Path |
 |------|------|
@@ -118,15 +118,15 @@ user-123
 
 ---
 
-## ✨ Fully Functional Components
+## Fully Functional Components
 
-✅ Frontend (S3 hosted)  
-✅ Product Service  
-✅ Cart Service  
-✅ Order Service  
-✅ DynamoDB Tables  
-✅ API Gateway  
-✅ Sample Data  
+ Frontend (S3 hosted)  
+ Product Service  
+ Cart Service  
+ Order Service  
+ DynamoDB Tables  
+ API Gateway  
+ Sample Data  
 
 ---
 

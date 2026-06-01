@@ -85,6 +85,16 @@ def normalize_cart_items(items):
 
     return normalized_items
 
+def get_order_route_parts(path):
+    """Return route parts after /order or /v1/orders."""
+    parts = [part for part in path.strip('/').split('/') if part]
+    if len(parts) >= 2 and parts[0] == 'v1' and parts[1] in ('order', 'orders'):
+        return parts[2:]
+    if parts and parts[0] in ('order', 'orders'):
+        return parts[1:]
+    return []
+
+
 def lambda_handler(event, context):
     """
     Order Lambda Handler
@@ -93,7 +103,7 @@ def lambda_handler(event, context):
 
     http_method = event.get('requestContext', {}).get('http', {}).get('method', 'GET')
     path = event.get('rawPath', '/')
-    path_parts = path.split('/')
+    route_parts = get_order_route_parts(path)
     correlation_id = get_correlation_id(event)
     log_event(
         logger,
@@ -106,25 +116,35 @@ def lambda_handler(event, context):
     )
 
     try:
-        # POST /order - Create new order
-        if http_method == 'POST':
+        # POST /orders - Create new order
+        if http_method == 'POST' and len(route_parts) == 0:
             body = json.loads(event.get('body', '{}'))
             return create_order(body, correlation_id)
 
-        # GET /order/{order_id} - Get order details
-        elif http_method == 'GET' and len(path_parts) >= 3 and path_parts[2] != 'user':
-            order_id = path_parts[2]
-            return get_order(order_id, correlation_id)
+        # GET /orders - Get all orders (admin)
+        elif http_method == 'GET' and len(route_parts) == 0:
+            return get_all_orders(correlation_id)
 
-        # GET /order/user/{user_id} - Get user's orders
-        elif http_method == 'GET' and len(path_parts) >= 4 and path_parts[2] == 'user':
-            user_id = path_parts[3]
+        # GET /orders/user/{user_id} - Get user's orders
+        elif http_method == 'GET' and len(route_parts) >= 2 and route_parts[0] == 'user':
+            user_id = route_parts[1]
             return get_user_orders(user_id, correlation_id)
 
-        # DELETE /order/{order_id} - Cancel order
-        elif http_method == 'DELETE' and len(path_parts) >= 3:
-            order_id = path_parts[2]
+        # GET /orders/{order_id} - Get order details
+        elif http_method == 'GET' and len(route_parts) == 1:
+            order_id = route_parts[0]
+            return get_order(order_id, correlation_id)
+
+        # DELETE /orders/{order_id} - Cancel order
+        elif http_method == 'DELETE' and len(route_parts) == 1:
+            order_id = route_parts[0]
             return cancel_order(order_id, correlation_id)
+
+        # PUT /orders/{order_id}/status - Update order status (admin)
+        elif http_method == 'PUT' and len(route_parts) == 2 and route_parts[1] == 'status':
+            order_id = route_parts[0]
+            body = json.loads(event.get('body', '{}'))
+            return update_order_status(order_id, body, correlation_id)
 
         else:
             return error_response(400, "Invalid request", correlation_id)
@@ -310,6 +330,77 @@ def cancel_order(order_id, correlation_id=None):
     except Exception as e:
         logger.exception("Failed to cancel order")
         return error_response(500, f"Failed to cancel order: {str(e)}", correlation_id)
+
+
+def update_order_status(order_id, body, correlation_id=None):
+    """Update order status (admin action: CONFIRMED → DISPATCHED → DELIVERED)"""
+    VALID_STATUSES = ['CONFIRMED', 'DISPATCHED', 'DELIVERED', 'CANCELLED']
+    try:
+        validate_required_fields(body, ['status'])
+        new_status = str(body['status']).upper()
+
+        if new_status not in VALID_STATUSES:
+            return error_response(400, f"Invalid status. Must be one of: {', '.join(VALID_STATUSES)}", correlation_id)
+
+        orders_table = get_orders_table()
+        response = orders_table.get_item(Key={'order_id': order_id})
+
+        if 'Item' not in response:
+            return error_response(404, f"Order {order_id} not found", correlation_id)
+
+        order = response['Item']
+        old_status = order.get('status', '')
+
+        order['status'] = new_status
+        order['updated_at'] = datetime.now().isoformat()
+        if new_status == 'DELIVERED':
+            order['delivered_at'] = datetime.now().isoformat()
+        if new_status == 'DISPATCHED':
+            order['dispatched_at'] = datetime.now().isoformat()
+
+        orders_table.put_item(Item=order)
+
+        log_event(
+            logger,
+            logging.INFO,
+            "order_status_updated",
+            service="order",
+            action="update_status",
+            order_id=order_id,
+            old_status=old_status,
+            new_status=new_status,
+            correlation_id=correlation_id
+        )
+
+        return success_response(200, {
+            'message': f'Order {order_id} status updated to {new_status}',
+            'data': order
+        }, correlation_id)
+
+    except ValidationError as e:
+        return error_response(400, str(e), correlation_id)
+    except Exception as e:
+        logger.exception("Failed to update order status")
+        return error_response(500, f"Failed to update order status: {str(e)}", correlation_id)
+
+
+def get_all_orders(correlation_id=None):
+    """Get all orders (admin action)"""
+    try:
+        orders_table = get_orders_table()
+        response = orders_table.scan()
+        orders = response.get('Items', [])
+        orders.sort(key=lambda x: x.get('created_at', ''), reverse=True)
+
+        return success_response(200, {
+            'message': f'Retrieved {len(orders)} orders',
+            'data': orders,
+            'count': len(orders)
+        }, correlation_id)
+
+    except Exception as e:
+        logger.exception("Failed to retrieve all orders")
+        return error_response(500, f"Failed to retrieve orders: {str(e)}", correlation_id)
 
 
 def calculate_delivery_date():

@@ -12,7 +12,10 @@ export default function ProductsPage({
   addToCart,
   addingProductIds,
   retryProducts,
-  loadMoreProducts
+  loadMoreProducts,
+  isAdminView = false,
+  showAlert,
+  loadProducts
 }) {
   return (
     <>
@@ -28,6 +31,9 @@ export default function ProductsPage({
           loadingMore={loadingMore}
           hasMoreProducts={hasMoreProducts}
           loadMoreProducts={loadMoreProducts}
+          isAdminView={isAdminView}
+          showAlert={showAlert}
+          loadProducts={loadProducts}
         />
       )}
     </>

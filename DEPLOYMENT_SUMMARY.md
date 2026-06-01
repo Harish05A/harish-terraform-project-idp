@@ -1,6 +1,6 @@
 # E-Commerce Backend Deployment Summary
 
-## ✅ DEPLOYMENT SUCCESSFUL!
+##  DEPLOYMENT SUCCESSFUL!
 
 **Deployed on:** April 14, 2026
 **Account:** 726101441380 (AWS Academy Developer)
@@ -9,7 +9,7 @@
 
 ---
 
-## 🎯 API Endpoint
+##  API Endpoint
 
 **Base URL:** https://490z9zcjr8.execute-api.ap-southeast-1.amazonaws.com/v1/
 
@@ -17,32 +17,32 @@ Primary API routes now use `/v1/products`, `/v1/cart`, and `/v1/orders`. Legacy 
 
 ---
 
-## 📦 Deployed Resources
+##  Deployed Resources
 
 ### Lambda Functions (3)
 | Function | ARN | Status |
 |----------|-----|--------|
-| harish-tf-product | `arn:aws:lambda:ap-southeast-1:726101441380:function:harish-tf-product` | ✅ Live |
-| harish-tf-cart | `arn:aws:lambda:ap-southeast-1:726101441380:function:harish-tf-cart` | ✅ Live |
-| harish-tf-order | `arn:aws:lambda:ap-southeast-1:726101441380:function:harish-tf-order` | ✅ Live |
+| harish-tf-product | `arn:aws:lambda:ap-southeast-1:726101441380:function:harish-tf-product` |  Live |
+| harish-tf-cart | `arn:aws:lambda:ap-southeast-1:726101441380:function:harish-tf-cart` |  Live |
+| harish-tf-order | `arn:aws:lambda:ap-southeast-1:726101441380:function:harish-tf-order` |  Live |
 
 ### DynamoDB Tables (3)
 | Table | Purpose | Status |
 |-------|---------|--------|
-| harish-tf-products | Product catalog | ✅ Ready |
-| harish-tf-carts | Shopping carts | ✅ Ready |
-| harish-tf-orders | Order history (with GSI) | ✅ Ready |
+| harish-tf-products | Product catalog |  Ready |
+| harish-tf-carts | Shopping carts |  Ready |
+| harish-tf-orders | Order history (with GSI) |  Ready |
 
 ### API Gateway
 | Item | Value | Status |
 |------|-------|--------|
-| API Type | HTTP API | ✅ Active |
-| API ID | 490z9zcjr8 | ✅ Ready |
-| Auto-deploy | Enabled | ✅ Active |
+| API Type | HTTP API |  Active |
+| API ID | 490z9zcjr8 |  Ready |
+| Auto-deploy | Enabled |  Active |
 
 ---
 
-## 🛣️ API Routes (Versioned)
+##  API Routes (Versioned)
 
 ### Product Service (5 routes)
 ```bash
@@ -72,7 +72,7 @@ DELETE /v1/orders/{order_id}                 → Cancel order
 
 ---
 
-## 🧪 Test Your API
+##  Test Your API
 
 ### 1. List Products
 ```bash
@@ -122,7 +122,7 @@ curl -X POST https://490z9zcjr8.execute-api.ap-southeast-1.amazonaws.com/v1/orde
 
 ---
 
-## 💰 Cost Breakdown
+##  Cost Breakdown
 
 ### Monthly Costs (Estimated)
 - **Lambda:** Free tier (~1M requests/month included)
@@ -182,18 +182,18 @@ API Gateway (490z9zcjr8)
 
 ---
 
-## ✅ What's Complete
+##  What's Complete
 
-- ✅ Step 1: Provider + Variables
-- ✅ Step 2: Product Lambda Service
-- ✅ Step 3: DynamoDB Tables
-- ✅ Step 4: API Gateway
-- ✅ Step 5: Cart & Order Services
+-  Step 1: Provider + Variables
+-  Step 2: Product Lambda Service
+-  Step 3: DynamoDB Tables
+-  Step 4: API Gateway
+-  Step 5: Cart & Order Services
 - ⏳ Step 6: S3 Frontend (NEXT)
 
 ---
 
-## 🚀 Next Steps
+## Next Steps
 
 **Step 6: Frontend**
 - Create simple HTML e-commerce page
@@ -227,4 +227,4 @@ API Gateway (490z9zcjr8)
 
 ---
 
-**Status:** ✅ READY FOR FRONTEND STEP 6
+**Status:**  READY FOR FRONTEND STEP 6
