@@ -4,11 +4,14 @@ export default function Header({ theme, toggleTheme, cartCount, onLogout }) {
   return (
     <header>
       <Link className="logo" to="/">
-        Ecommerce Store
+        <span className="logo-mark">S</span>
+        Serverless Store
       </Link>
       <nav>
         <NavLink to="/">Products</NavLink>
-        <NavLink to="/cart">Cart ({cartCount})</NavLink>
+        <NavLink to="/cart" className="cart-link">
+          Cart <span className="nav-count">{cartCount}</span>
+        </NavLink>
         <NavLink to="/orders">Orders</NavLink>
         <NavLink to="/review">Rate Order</NavLink>
         <NavLink to="/add-product">Add Product</NavLink>

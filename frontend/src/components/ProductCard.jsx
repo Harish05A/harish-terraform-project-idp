@@ -15,7 +15,10 @@ export default function ProductCard({ product, cartItem, animationDelay = '0s', 
 
   return (
     <div className="product-card" style={{ animationDelay }}>
-      <div className="product-image">{product.name.charAt(0).toUpperCase()}</div>
+      <div className="product-image">
+        <img src={product.imageUrl} alt={product.name} loading="lazy" />
+        <span className="category-pill">{product.category}</span>
+      </div>
       <div className="product-info">
         <div className="product-name">{product.name}</div>
         <div className="product-desc">{product.description}</div>

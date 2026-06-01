@@ -26,7 +26,14 @@ export default function LoginPage({ showAlert }) {
   return (
     <div className="login-page">
       <form className="login-panel" onSubmit={handleSubmit}>
-        <div className="section-title">Store Login</div>
+        <div className="login-brand">
+          <span className="brand-mark">S</span>
+          <div>
+            <p className="eyebrow">Welcome back</p>
+            <h1>Storefront Login</h1>
+          </div>
+        </div>
+        <p className="login-copy">Sign in to manage your cart, checkout, orders, and product reviews.</p>
         <div className="form-group">
           <label>Username</label>
           <input
@@ -50,7 +57,7 @@ export default function LoginPage({ showAlert }) {
           />
         </div>
         <button type="submit" className="btn-primary" disabled={isSubmitting}>
-          {isSubmitting ? 'Logging in...' : 'Login'}
+          {isSubmitting ? 'Logging in...' : 'Login to Store'}
         </button>
       </form>
     </div>
