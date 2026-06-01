@@ -10,6 +10,8 @@ class JsonFormatter(logging.Formatter):
             "logger": record.name,
             "message": record.getMessage(),
         }
+        for key, value in getattr(record, "extra_fields", {}).items():
+            payload[key] = value
         if record.exc_info:
             payload["exception"] = self.formatException(record.exc_info)
         return json.dumps(payload)
@@ -25,3 +27,7 @@ def get_logger(name):
     logger.setLevel(os.environ.get("LOG_LEVEL", "INFO").upper())
     logger.propagate = False
     return logger
+
+
+def log_event(logger, level, message, **fields):
+    logger.log(level, message, extra={"extra_fields": fields})

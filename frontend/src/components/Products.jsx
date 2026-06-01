@@ -2,6 +2,7 @@ import ProductCard from './ProductCard'
 
 export default function Products({
   products,
+  cart = {},
   addToCart,
   addingProductIds = {},
   loadingMore,
@@ -22,6 +23,7 @@ export default function Products({
           <ProductCard
             key={product.product_id}
             product={product}
+            cartItem={cart[product.product_id]}
             animationDelay={`${index * 0.05}s`}
             onAddToCart={addToCart}
             isAdding={Boolean(addingProductIds[product.product_id])}

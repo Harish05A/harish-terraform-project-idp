@@ -8,9 +8,10 @@ function RatingStars({ rating }) {
   )
 }
 
-export default function ProductCard({ product, animationDelay = '0s', onAddToCart, isAdding = false }) {
+export default function ProductCard({ product, cartItem, animationDelay = '0s', onAddToCart, isAdding = false }) {
   const ratingAverage = Number(product.rating_average ?? product.rating ?? 0)
   const ratingCount = Number(product.rating_count ?? 0)
+  const cartQuantity = Number(cartItem?.quantity || 0)
 
   return (
     <div className="product-card" style={{ animationDelay }}>
@@ -20,6 +21,12 @@ export default function ProductCard({ product, animationDelay = '0s', onAddToCar
         <div className="product-desc">{product.description}</div>
         <div className="product-price">${parseFloat(product.price).toFixed(2)}</div>
         <div className="product-stock">Stock: {product.stock || 0}</div>
+        {cartQuantity > 0 && (
+          <div className="cart-status">
+            <span>Added to Cart</span>
+            <span className="cart-status-badge">{cartQuantity}</span>
+          </div>
+        )}
         <div className="product-rating">
           <RatingStars rating={ratingAverage} />
           <span className="product-rating-value">{ratingAverage.toFixed(1)}</span>
@@ -31,7 +38,7 @@ export default function ProductCard({ product, animationDelay = '0s', onAddToCar
             onClick={() => onAddToCart(product.product_id, product.name, product.price)}
             disabled={isAdding}
           >
-            {isAdding ? 'Adding...' : 'Add to Cart'}
+            {isAdding ? 'Adding...' : cartQuantity > 0 ? 'Add One More' : 'Add to Cart'}
           </button>
         </div>
       </div>

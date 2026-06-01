@@ -5,10 +5,12 @@ import Header from './components/Header'
 import Review from './components/Review'
 import { useTheme } from './hooks/useTheme'
 import CartPage from './pages/CartPage'
+import LoginPage from './pages/LoginPage'
 import OrdersPage from './pages/OrdersPage'
 import ProductsPage from './pages/ProductsPage'
 import { cartService, orderService, productService } from './services/api'
-import { getCartCount, loadSavedCart, saveCart } from './utils/cartStorage'
+import { clearSavedCart, getCartCount, loadSavedCart, normalizeApiCart, saveCart } from './utils/cartStorage'
+import { isLoggedIn, logout, onAuthChange } from './utils/auth'
 import { getOrderItems } from './utils/orders'
 
 const DEFAULT_USER_ID = 'user-123'
@@ -16,6 +18,7 @@ const PRODUCT_PAGE_SIZE = 12
 
 function App() {
   const { theme, toggleTheme } = useTheme()
+  const [isAuthenticated, setIsAuthenticated] = useState(() => isLoggedIn())
   const [cart, setCart] = useState(() => loadSavedCart())
   const [products, setProducts] = useState([])
   const [orders, setOrders] = useState([])
@@ -30,6 +33,7 @@ function App() {
   const [productsLastKey, setProductsLastKey] = useState(null)
   const [addingProductIds, setAddingProductIds] = useState({})
   const [removingProductIds, setRemovingProductIds] = useState({})
+  const [updatingProductIds, setUpdatingProductIds] = useState({})
   const [ordersLoading, setOrdersLoading] = useState(false)
   const [ordersError, setOrdersError] = useState('')
 
@@ -81,6 +85,22 @@ function App() {
     loadProducts({ append: true, lastKey: productsLastKey })
   }, [loadProducts, productsLastKey, productsPageLoading])
 
+  const replaceCartFromApi = (apiCart) => {
+    const nextCart = normalizeApiCart(apiCart)
+    saveCart(nextCart)
+    setCart(nextCart)
+    return nextCart
+  }
+
+  const refreshCart = useCallback(async (userId = DEFAULT_USER_ID) => {
+    try {
+      const data = await cartService.getByUser(userId)
+      replaceCartFromApi(data)
+    } catch (error) {
+      showAlert(error.message, 'error')
+    }
+  }, [])
+
   const addToCart = async (productId, name, price) => {
     if (!productId || Number(price) <= 0) {
       showAlert('This product cannot be added to the cart.', 'error')
@@ -90,31 +110,13 @@ function App() {
     setAddingProductIds((currentState) => ({ ...currentState, [productId]: true }))
 
     try {
-      await cartService.addItem({
+      const response = await cartService.addItem({
         user_id: DEFAULT_USER_ID,
         product_id: productId,
         quantity: 1
       })
-
-      setCart((currentCart) => {
-        const nextCart = { ...currentCart }
-        const currentQuantity = nextCart[productId]?.quantity || 0
-        const nextQuantity = currentQuantity + 1
-
-        if (productId in nextCart) {
-          nextCart[productId].quantity = nextQuantity
-        } else {
-          nextCart[productId] = {
-            product_id: productId,
-            product_name: name,
-            unit_price: Number(price),
-            quantity: 1
-          }
-        }
-
-        saveCart(nextCart)
-        return nextCart
-      })
+      replaceCartFromApi(response.data)
+      console.info('frontend_cart_event', { action: 'add_to_cart', productId, quantity: 1 })
       showAlert(`${name} added to cart`, 'success')
     } catch (error) {
       showAlert(error.message, 'error')
@@ -127,18 +129,32 @@ function App() {
     setRemovingProductIds((currentState) => ({ ...currentState, [productId]: true }))
 
     try {
-      await cartService.removeItem(DEFAULT_USER_ID, productId)
-      setCart((currentCart) => {
-        const nextCart = { ...currentCart }
-        delete nextCart[productId]
-        saveCart(nextCart)
-        return nextCart
-      })
+      const response = await cartService.removeItem(DEFAULT_USER_ID, productId)
+      replaceCartFromApi(response.data)
+      console.info('frontend_cart_event', { action: 'remove_from_cart', productId })
       showAlert('Cart updated', 'success')
     } catch (error) {
       showAlert(error.message, 'error')
     } finally {
       setRemovingProductIds((currentState) => ({ ...currentState, [productId]: false }))
+    }
+  }
+
+  const updateCartQuantity = async (productId, quantity) => {
+    if (quantity < 0) return
+    setUpdatingProductIds((currentState) => ({ ...currentState, [productId]: true }))
+
+    try {
+      const response = quantity === 0
+        ? await cartService.removeItem(DEFAULT_USER_ID, productId)
+        : await cartService.updateItem(DEFAULT_USER_ID, productId, quantity)
+      replaceCartFromApi(response.data)
+      console.info('frontend_cart_event', { action: 'update_quantity', productId, quantity })
+      showAlert(quantity === 0 ? 'Item removed from cart.' : 'Quantity updated.', 'success')
+    } catch (error) {
+      showAlert(error.message, 'error')
+    } finally {
+      setUpdatingProductIds((currentState) => ({ ...currentState, [productId]: false }))
     }
   }
 
@@ -195,9 +211,31 @@ function App() {
     loadProducts()
   }, [loadProducts])
 
+  useEffect(() => {
+    if (isAuthenticated) {
+      refreshCart(DEFAULT_USER_ID)
+    }
+  }, [isAuthenticated, refreshCart])
+
+  useEffect(() => onAuthChange(() => setIsAuthenticated(isLoggedIn())), [])
+
+  const handleLogout = () => {
+    console.info('frontend_auth_event', { action: 'logout' })
+    logout()
+    setCart({})
+    clearSavedCart()
+    showAlert('Logged out successfully.', 'success')
+  }
+
+  const requireLogin = (element) => (
+    isAuthenticated ? element : <Navigate to="/login" replace />
+  )
+
   return (
     <>
-      <Header theme={theme} toggleTheme={toggleTheme} cartCount={getCartCount(cart)} />
+      {isAuthenticated && (
+        <Header theme={theme} toggleTheme={toggleTheme} cartCount={getCartCount(cart)} onLogout={handleLogout} />
+      )}
       <div className="container">
         {alert.show && (
           <div className={`alert ${alert.type}`} style={{ display: 'block' }}>
@@ -207,10 +245,15 @@ function App() {
 
         <Routes>
           <Route
+            path="/login"
+            element={isAuthenticated ? <Navigate to="/" replace /> : <LoginPage showAlert={showAlert} />}
+          />
+          <Route
             path="/"
-            element={
+            element={requireLogin(
               <ProductsPage
                 products={products}
+                cart={cart}
                 loading={productsLoading}
                 loadingMore={productsPageLoading}
                 hasMoreProducts={Boolean(productsLastKey)}
@@ -220,15 +263,17 @@ function App() {
                 retryProducts={() => loadProducts()}
                 loadMoreProducts={loadMoreProducts}
               />
-            }
+            )}
           />
           <Route
             path="/cart"
-            element={
+            element={requireLogin(
               <CartPage
                 cart={cart}
                 removeFromCart={removeFromCart}
+                updateCartQuantity={updateCartQuantity}
                 removingProductIds={removingProductIds}
+                updatingProductIds={updatingProductIds}
                 showAlert={showAlert}
                 setCart={setCart}
                 setLatestOrderForReview={setLatestOrderForReview}
@@ -236,22 +281,22 @@ function App() {
                 setSubmittedReviews={setSubmittedReviews}
                 loadUserOrders={loadUserOrders}
               />
-            }
+            )}
           />
           <Route
             path="/orders"
-            element={
+            element={requireLogin(
               <OrdersPage
                 orders={orders}
                 loadUserOrders={loadUserOrders}
                 loading={ordersLoading}
                 error={ordersError}
               />
-            }
+            )}
           />
           <Route
             path="/review"
-            element={
+            element={requireLogin(
               <Review
                 latestOrderForReview={latestOrderForReview}
                 pendingRatings={pendingRatings}
@@ -261,13 +306,13 @@ function App() {
                 submitReview={submitReview}
                 getOrderItems={getOrderItems}
               />
-            }
+            )}
           />
           <Route
             path="/add-product"
-            element={<AddProduct showAlert={showAlert} loadProducts={loadProducts} />}
+            element={requireLogin(<AddProduct showAlert={showAlert} loadProducts={loadProducts} />)}
           />
-          <Route path="*" element={<Navigate to="/" replace />} />
+          <Route path="*" element={<Navigate to={isAuthenticated ? '/' : '/login'} replace />} />
         </Routes>
       </div>
     </>

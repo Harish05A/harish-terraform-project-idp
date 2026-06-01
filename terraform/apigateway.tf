@@ -13,16 +13,23 @@ resource "aws_apigatewayv2_api" "product_api" {
       "date",
       "x-amzn-trace-id",
       "x-amz-apigw-trace-id",
+      "x-correlation-id",
       "content-type",
       "authorization"
     ]
     expose_headers = [
       "date",
       "x-amzn-trace-id",
-      "x-amz-apigw-trace-id"
+      "x-amz-apigw-trace-id",
+      "x-correlation-id"
     ]
     max_age = 300
   }
+}
+
+resource "aws_cloudwatch_log_group" "api_gateway_logs" {
+  name              = "/aws/apigateway/${var.project_name}-product-api"
+  retention_in_days = 14
 }
 
 # =====================
@@ -313,20 +320,19 @@ resource "aws_apigatewayv2_stage" "default" {
   name        = "$default"
   auto_deploy = true
 
-  # CloudWatch logging disabled due to IAM permissions
-  # Enable this if your role has logs:CreateLogGroup permission
-  # access_log_settings {
-  #   destination_arn = aws_cloudwatch_log_group.api_gateway_logs.arn
-  #   format = jsonencode({
-  #     requestId      = "$context.requestId"
-  #     ip             = "$context.identity.sourceIp"
-  #     requestTime    = "$context.requestTime"
-  #     httpMethod     = "$context.httpMethod"
-  #     routeKey       = "$context.routeKey"
-  #     status         = "$context.status"
-  #     protocol       = "$context.protocol"
-  #     responseLength = "$context.responseLength"
-  #     integrationLatency = "$context.integration.latency"
-  #   })
-  # }
+  access_log_settings {
+    destination_arn = aws_cloudwatch_log_group.api_gateway_logs.arn
+    format = jsonencode({
+      requestId          = "$context.requestId"
+      ip                 = "$context.identity.sourceIp"
+      requestTime        = "$context.requestTime"
+      httpMethod         = "$context.httpMethod"
+      routeKey           = "$context.routeKey"
+      status             = "$context.status"
+      protocol           = "$context.protocol"
+      responseLength     = "$context.responseLength"
+      integrationLatency = "$context.integration.latency"
+      userAgent          = "$context.identity.userAgent"
+    })
+  }
 }

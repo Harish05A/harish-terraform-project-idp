@@ -1,5 +1,6 @@
 import json
 import boto3
+import logging
 import os
 import sys
 import uuid
@@ -11,7 +12,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from shared.dynamodb import get_carts_table as shared_get_carts_table
 from shared.dynamodb import get_orders_table as shared_get_orders_table
 from shared.dynamodb import get_region
-from shared.logger import get_logger
+from shared.logger import get_logger, log_event
 from shared.response import error_response, success_response
 from shared.validators import ValidationError, validate_required_fields
 
@@ -43,6 +44,11 @@ def get_orders_table():
 
 def get_carts_table():
     return shared_get_carts_table()
+
+
+def get_correlation_id(event):
+    headers = event.get('headers') or {}
+    return headers.get('x-correlation-id') or headers.get('X-Correlation-Id') or str(uuid.uuid4())
 
 
 def normalize_cart_items(items):
@@ -88,34 +94,44 @@ def lambda_handler(event, context):
     http_method = event.get('requestContext', {}).get('http', {}).get('method', 'GET')
     path = event.get('rawPath', '/')
     path_parts = path.split('/')
+    correlation_id = get_correlation_id(event)
+    log_event(
+        logger,
+        logging.INFO,
+        "order_request_received",
+        service="order",
+        action=http_method,
+        path=path,
+        correlation_id=correlation_id
+    )
 
     try:
         # POST /order - Create new order
         if http_method == 'POST':
             body = json.loads(event.get('body', '{}'))
-            return create_order(body)
+            return create_order(body, correlation_id)
 
         # GET /order/{order_id} - Get order details
         elif http_method == 'GET' and len(path_parts) >= 3 and path_parts[2] != 'user':
             order_id = path_parts[2]
-            return get_order(order_id)
+            return get_order(order_id, correlation_id)
 
         # GET /order/user/{user_id} - Get user's orders
         elif http_method == 'GET' and len(path_parts) >= 4 and path_parts[2] == 'user':
             user_id = path_parts[3]
-            return get_user_orders(user_id)
+            return get_user_orders(user_id, correlation_id)
 
         # DELETE /order/{order_id} - Cancel order
         elif http_method == 'DELETE' and len(path_parts) >= 3:
             order_id = path_parts[2]
-            return cancel_order(order_id)
+            return cancel_order(order_id, correlation_id)
 
         else:
-            return error_response(400, "Invalid request")
+            return error_response(400, "Invalid request", correlation_id)
 
     except json.JSONDecodeError:
         logger.warning("Invalid JSON request body")
-        return error_response(400, "Invalid JSON request body")
+        return error_response(400, "Invalid JSON request body", correlation_id)
     except Exception as e:
         logger.exception("Unhandled order request error")
         publish_sns(
@@ -123,9 +139,9 @@ def lambda_handler(event, context):
             f"Error occurred in Order Service:\n\n{str(e)}"
         )
 
-        return error_response(500, f"Internal server error: {str(e)}")
+        return error_response(500, f"Internal server error: {str(e)}", correlation_id)
 
-def create_order(body):
+def create_order(body, correlation_id=None):
     """Create order from cart"""
     required_fields = ['user_id', 'shipping_address', 'email']
 
@@ -137,7 +153,7 @@ def create_order(body):
         carts_table = get_carts_table()
         cart_response = carts_table.get_item(Key={'user_id': user_id})
         if 'Item' not in cart_response or not cart_response['Item'].get('items'):
-            return error_response(400, "Cart is empty")
+            return error_response(400, "Cart is empty", correlation_id)
 
         cart = cart_response['Item']
 
@@ -173,6 +189,17 @@ def create_order(body):
         # Clear user's cart
         carts_table = get_carts_table()
         carts_table.delete_item(Key={'user_id': user_id})
+        log_event(
+            logger,
+            logging.INFO,
+            "order_created_cart_cleared",
+            service="order",
+            action="place_order",
+            order_id=order_id,
+            user_id=user_id,
+            total_items=int(cart['total_items']),
+            correlation_id=correlation_id
+        )
 
         # After order is successfully saved
         publish_sns(
@@ -197,37 +224,37 @@ def create_order(body):
             'message': 'Order created successfully',
             'data': order,
             'next_steps': 'Your order has been confirmed. Check your email for updates.'
-        })
+        }, correlation_id)
 
     except ValidationError as e:
-        return error_response(400, str(e))
+        return error_response(400, str(e), correlation_id)
     except Exception as e:
         logger.exception("Failed to create order")
-        return error_response(500, f"Failed to create order: {str(e)}")
+        return error_response(500, f"Failed to create order: {str(e)}", correlation_id)
 
 
-def get_order(order_id):
+def get_order(order_id, correlation_id=None):
     """Get order details"""
     try:
         orders_table = get_orders_table()
         response = orders_table.get_item(Key={'order_id': order_id})
 
         if 'Item' not in response:
-            return error_response(404, f"Order {order_id} not found")
+            return error_response(404, f"Order {order_id} not found", correlation_id)
 
         order = response['Item']
 
         return success_response(200, {
             'message': f'Retrieved order {order_id}',
             'data': order
-        })
+        }, correlation_id)
 
     except Exception as e:
         logger.exception("Failed to retrieve order")
-        return error_response(500, f"Failed to retrieve order: {str(e)}")
+        return error_response(500, f"Failed to retrieve order: {str(e)}", correlation_id)
 
 
-def get_user_orders(user_id):
+def get_user_orders(user_id, correlation_id=None):
     """Get all orders for a user"""
     try:
         orders_table = get_orders_table()
@@ -245,14 +272,14 @@ def get_user_orders(user_id):
             'message': f'Retrieved {len(orders)} orders for user {user_id}',
             'data': orders,
             'count': len(orders)
-        })
+        }, correlation_id)
 
     except Exception as e:
         logger.exception("Failed to retrieve user orders")
-        return error_response(500, f"Failed to retrieve orders: {str(e)}")
+        return error_response(500, f"Failed to retrieve orders: {str(e)}", correlation_id)
 
 
-def cancel_order(order_id):
+def cancel_order(order_id, correlation_id=None):
     """Cancel an order"""
     try:
         orders_table = get_orders_table()
@@ -260,13 +287,13 @@ def cancel_order(order_id):
         response = orders_table.get_item(Key={'order_id': order_id})
 
         if 'Item' not in response:
-            return error_response(404, f"Order {order_id} not found")
+            return error_response(404, f"Order {order_id} not found", correlation_id)
 
         order = response['Item']
 
         # Can only cancel if status is CONFIRMED
         if order['status'] != 'CONFIRMED':
-            return error_response(400, f"Cannot cancel order with status: {order['status']}")
+            return error_response(400, f"Cannot cancel order with status: {order['status']}", correlation_id)
 
         # Update order status
         order['status'] = 'CANCELLED'
@@ -278,11 +305,11 @@ def cancel_order(order_id):
         return success_response(200, {
             'message': f'Order {order_id} cancelled successfully',
             'data': order
-        })
+        }, correlation_id)
 
     except Exception as e:
         logger.exception("Failed to cancel order")
-        return error_response(500, f"Failed to cancel order: {str(e)}")
+        return error_response(500, f"Failed to cancel order: {str(e)}", correlation_id)
 
 
 def calculate_delivery_date():

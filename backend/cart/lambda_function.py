@@ -1,6 +1,8 @@
 import json
+import logging
 import os
 import sys
+import uuid
 from datetime import datetime
 from decimal import Decimal
 
@@ -8,11 +10,16 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from shared.dynamodb import get_carts_table as shared_get_carts_table
 from shared.dynamodb import get_products_table as shared_get_products_table
-from shared.logger import get_logger
+from shared.logger import get_logger, log_event
 from shared.response import error_response, success_response
 from shared.validators import ValidationError, parse_positive_int, validate_required_fields
 
 logger = get_logger(__name__)
+
+
+def get_correlation_id(event):
+    headers = event.get('headers') or {}
+    return headers.get('x-correlation-id') or headers.get('X-Correlation-Id') or str(uuid.uuid4())
 
 
 def get_carts_table():
@@ -100,46 +107,56 @@ def lambda_handler(event, context):
     http_method = event.get('requestContext', {}).get('http', {}).get('method', 'GET')
     path = event.get('rawPath', '/')
     route_parts = get_cart_route_parts(path)
+    correlation_id = get_correlation_id(event)
+    log_event(
+        logger,
+        logging.INFO,
+        "cart_request_received",
+        service="cart",
+        action=http_method,
+        path=path,
+        correlation_id=correlation_id
+    )
 
     try:
         # POST /cart - Add item to cart
         if http_method == 'POST' and len(route_parts) == 0:
             body = json.loads(event.get('body', '{}'))
-            return add_to_cart(body)
+            return add_to_cart(body, correlation_id)
 
         # GET /cart/{user_id} - Get user's cart
         elif http_method == 'GET' and len(route_parts) == 1:
             user_id = route_parts[0]
-            return get_cart(user_id)
+            return get_cart(user_id, correlation_id)
 
         # PUT /cart/{user_id}/{product_id} - Update quantity
         elif http_method == 'PUT' and len(route_parts) == 2:
             user_id, product_id = route_parts
             body = json.loads(event.get('body', '{}'))
-            return update_cart_item(user_id, product_id, body)
+            return update_cart_item(user_id, product_id, body, correlation_id)
 
         # DELETE /cart/{user_id}/{product_id} - Remove item
         elif http_method == 'DELETE' and len(route_parts) == 2:
             user_id, product_id = route_parts
-            return remove_from_cart(user_id, product_id)
+            return remove_from_cart(user_id, product_id, correlation_id)
 
         # DELETE /cart/{user_id} - Clear entire cart
         elif http_method == 'DELETE' and len(route_parts) == 1:
             user_id = route_parts[0]
-            return clear_cart(user_id)
+            return clear_cart(user_id, correlation_id)
 
         else:
-            return error_response(400, "Invalid request")
+            return error_response(400, "Invalid request", correlation_id)
 
     except json.JSONDecodeError:
         logger.warning("Invalid JSON request body")
-        return error_response(400, "Invalid JSON request body")
+        return error_response(400, "Invalid JSON request body", correlation_id)
     except Exception as e:
         logger.exception("Unhandled cart request error")
-        return error_response(500, f"Internal server error: {str(e)}")
+        return error_response(500, f"Internal server error: {str(e)}", correlation_id)
 
 
-def add_to_cart(body):
+def add_to_cart(body, correlation_id=None):
     """Add item to user's cart"""
     required_fields = ['user_id', 'product_id', 'quantity']
 
@@ -154,7 +171,7 @@ def add_to_cart(body):
         # Verify product exists
         product_response = products_table.get_item(Key={'product_id': product_id})
         if 'Item' not in product_response:
-            return error_response(404, f"Product {product_id} not found")
+            return error_response(404, f"Product {product_id} not found", correlation_id)
 
         product = product_response['Item']
 
@@ -172,6 +189,19 @@ def add_to_cart(body):
         next_quantity = quantity
         if current_item:
             next_quantity = int(current_item.get('quantity', 0)) + quantity
+        log_event(
+            logger,
+            logging.INFO,
+            "cart_quantity_add",
+            service="cart",
+            action="add_to_cart",
+            user_id=user_id,
+            product_id=product_id,
+            requested_quantity=quantity,
+            previous_quantity=int(current_item.get('quantity', 0)) if current_item else 0,
+            next_quantity=next_quantity,
+            correlation_id=correlation_id
+        )
 
         # Add or update item in cart. POST means "add this quantity", not "set absolute quantity".
         cart['items'][product_id] = {
@@ -190,16 +220,16 @@ def add_to_cart(body):
         return success_response(200, {
             'message': f'Added {quantity} of {product["name"]} to cart',
             'data': cart
-        })
+        }, correlation_id)
 
     except ValidationError as e:
-        return error_response(400, str(e))
+        return error_response(400, str(e), correlation_id)
     except Exception as e:
         logger.exception("Failed to add to cart")
-        return error_response(500, f"Failed to add to cart: {str(e)}")
+        return error_response(500, f"Failed to add to cart: {str(e)}", correlation_id)
 
 
-def get_cart(user_id):
+def get_cart(user_id, correlation_id=None):
     """Get user's cart"""
     try:
         carts_table = get_carts_table()
@@ -215,17 +245,17 @@ def get_cart(user_id):
                 'created_at': None,
                 'updated_at': None
             }
-            return success_response(200, build_cart_payload(user_id, empty_cart, 'Cart is empty'))
+            return success_response(200, build_cart_payload(user_id, empty_cart, 'Cart is empty'), correlation_id)
 
         cart = normalize_cart(response['Item'], user_id)
-        return success_response(200, build_cart_payload(user_id, cart, f"Retrieved cart for {user_id}"))
+        return success_response(200, build_cart_payload(user_id, cart, f"Retrieved cart for {user_id}"), correlation_id)
 
     except Exception as e:
         logger.exception("Failed to retrieve cart")
-        return error_response(500, f"Failed to retrieve cart: {str(e)}")
+        return error_response(500, f"Failed to retrieve cart: {str(e)}", correlation_id)
 
 
-def update_cart_item(user_id, product_id, body):
+def update_cart_item(user_id, product_id, body, correlation_id=None):
     """Update quantity of item in cart"""
     try:
         carts_table = get_carts_table()
@@ -236,21 +266,22 @@ def update_cart_item(user_id, product_id, body):
         # Get cart
         response = carts_table.get_item(Key={'user_id': user_id})
         if 'Item' not in response:
-            return error_response(404, "Cart not found")
+            return error_response(404, "Cart not found", correlation_id)
 
         cart = normalize_cart(response['Item'], user_id)
 
         if product_id not in cart['items']:
-            return error_response(404, f"Product not in cart")
+            return error_response(404, f"Product not in cart", correlation_id)
 
         # Get product price
         product_response = products_table.get_item(Key={'product_id': product_id})
         if 'Item' not in product_response:
-            return error_response(404, "Product not found")
+            return error_response(404, "Product not found", correlation_id)
 
         product = product_response['Item']
 
         # Update item
+        previous_quantity = int(cart['items'][product_id].get('quantity', 0))
         cart['items'][product_id]['quantity'] = quantity
         cart['items'][product_id]['total_price'] = product['price'] * quantity
         cart['updated_at'] = datetime.now().isoformat()
@@ -258,32 +289,44 @@ def update_cart_item(user_id, product_id, body):
         recalculate_cart_totals(cart)
 
         carts_table.put_item(Item=cart)
+        log_event(
+            logger,
+            logging.INFO,
+            "cart_quantity_update",
+            service="cart",
+            action="update_quantity",
+            user_id=user_id,
+            product_id=product_id,
+            previous_quantity=previous_quantity,
+            next_quantity=quantity,
+            correlation_id=correlation_id
+        )
 
         return success_response(200, {
             'message': f'Updated quantity for {product_id}',
             'data': cart
-        })
+        }, correlation_id)
 
     except ValidationError as e:
-        return error_response(400, str(e))
+        return error_response(400, str(e), correlation_id)
     except Exception as e:
         logger.exception("Failed to update cart")
-        return error_response(500, f"Failed to update cart: {str(e)}")
+        return error_response(500, f"Failed to update cart: {str(e)}", correlation_id)
 
 
-def remove_from_cart(user_id, product_id):
+def remove_from_cart(user_id, product_id, correlation_id=None):
     """Remove item from cart"""
     try:
         carts_table = get_carts_table()
         # products_table = get_products_table()
         response = carts_table.get_item(Key={'user_id': user_id})
         if 'Item' not in response:
-            return error_response(404, "Cart not found")
+            return error_response(404, "Cart not found", correlation_id)
 
         cart = normalize_cart(response['Item'], user_id)
 
         if product_id not in cart['items']:
-            return error_response(404, f"Product not in cart")
+            return error_response(404, f"Product not in cart", correlation_id)
 
         # Remove item
         product_name = cart['items'][product_id]['product_name']
@@ -293,28 +336,30 @@ def remove_from_cart(user_id, product_id):
         recalculate_cart_totals(cart)
 
         carts_table.put_item(Item=cart)
+        log_event(logger, logging.INFO, "cart_item_removed", service="cart", action="remove_from_cart", user_id=user_id, product_id=product_id, correlation_id=correlation_id)
 
         return success_response(200, {
             'message': f'Removed {product_name} from cart',
             'data': cart
-        })
+        }, correlation_id)
 
     except Exception as e:
         logger.exception("Failed to remove from cart")
-        return error_response(500, f"Failed to remove from cart: {str(e)}")
+        return error_response(500, f"Failed to remove from cart: {str(e)}", correlation_id)
 
 
-def clear_cart(user_id):
+def clear_cart(user_id, correlation_id=None):
     """Clear entire cart"""
     try:
         carts_table = get_carts_table()
         carts_table.delete_item(Key={'user_id': user_id})
+        log_event(logger, logging.INFO, "cart_cleared", service="cart", action="clear_cart", user_id=user_id, correlation_id=correlation_id)
 
         return success_response(200, {
             'message': 'Cart cleared',
             'user_id': user_id
-        })
+        }, correlation_id)
 
     except Exception as e:
         logger.exception("Failed to clear cart")
-        return error_response(500, f"Failed to clear cart: {str(e)}")
+        return error_response(500, f"Failed to clear cart: {str(e)}", correlation_id)

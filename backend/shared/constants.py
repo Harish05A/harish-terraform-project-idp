@@ -10,5 +10,5 @@ DEFAULT_ORDERS_TABLE = "harish-tf-orders"
 
 CONTENT_TYPE_JSON = "application/json"
 ALLOWED_ORIGINS = "*"
-ALLOWED_HEADERS = "Content-Type,Authorization"
+ALLOWED_HEADERS = "Content-Type,Authorization,x-correlation-id"
 ALLOWED_METHODS = "GET,POST,PUT,DELETE,OPTIONS"

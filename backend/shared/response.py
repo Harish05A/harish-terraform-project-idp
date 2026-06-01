@@ -17,26 +17,29 @@ def decimal_default(obj):
     raise TypeError
 
 
-def response_headers():
-    return {
+def response_headers(correlation_id=None):
+    headers = {
         "Content-Type": CONTENT_TYPE_JSON,
         "Access-Control-Allow-Origin": ALLOWED_ORIGINS,
         "Access-Control-Allow-Headers": ALLOWED_HEADERS,
         "Access-Control-Allow-Methods": ALLOWED_METHODS,
     }
+    if correlation_id:
+        headers["x-correlation-id"] = correlation_id
+    return headers
 
 
-def success_response(status_code, data):
+def success_response(status_code, data, correlation_id=None):
     return {
         "statusCode": status_code,
-        "headers": response_headers(),
+        "headers": response_headers(correlation_id),
         "body": json.dumps(data, default=decimal_default),
     }
 
 
-def error_response(status_code, message):
+def error_response(status_code, message, correlation_id=None):
     return {
         "statusCode": status_code,
-        "headers": response_headers(),
-        "body": json.dumps({"error": message}),
+        "headers": response_headers(correlation_id),
+        "body": json.dumps({"error": message, "correlation_id": correlation_id}),
     }

@@ -3,7 +3,15 @@ import { orderService } from '../services/api'
 import { getCartItems, getCartTotal } from '../utils/cartStorage'
 import Loader from './Loader'
 
-export default function Cart({ cart, removeFromCart, removingProductIds = {}, onCheckout, showAlert }) {
+export default function Cart({
+  cart,
+  removeFromCart,
+  updateCartQuantity,
+  removingProductIds = {},
+  updatingProductIds = {},
+  onCheckout,
+  showAlert
+}) {
   const [checkoutData, setCheckoutData] = useState({
     userId: 'user-123',
     email: '',
@@ -80,6 +88,27 @@ export default function Cart({ cart, removeFromCart, removingProductIds = {}, on
           <div className="cart-item-info">
             <h4>{item.product_name}</h4>
             <span>${item.unit_price.toFixed(2)} x {item.quantity}</span>
+            <div className="quantity-controls" aria-label={`Quantity controls for ${item.product_name}`}>
+              <button
+                type="button"
+                className="quantity-btn"
+                onClick={() => updateCartQuantity(item.product_id, item.quantity - 1)}
+                disabled={Boolean(updatingProductIds[item.product_id]) || isCheckingOut}
+                title="Decrease quantity"
+              >
+                -
+              </button>
+              <span className="quantity-value">{item.quantity}</span>
+              <button
+                type="button"
+                className="quantity-btn"
+                onClick={() => updateCartQuantity(item.product_id, item.quantity + 1)}
+                disabled={Boolean(updatingProductIds[item.product_id]) || isCheckingOut}
+                title="Increase quantity"
+              >
+                +
+              </button>
+            </div>
           </div>
           <div style={{ textAlign: 'right' }}>
             <div className="cart-item-price">
@@ -90,7 +119,7 @@ export default function Cart({ cart, removeFromCart, removingProductIds = {}, on
               onClick={() => removeFromCart(item.product_id)}
               disabled={Boolean(removingProductIds[item.product_id]) || isCheckingOut}
             >
-              {removingProductIds[item.product_id] ? 'Removing...' : 'Remove'}
+              {removingProductIds[item.product_id] || updatingProductIds[item.product_id] ? 'Updating...' : 'Remove'}
             </button>
           </div>
         </div>

@@ -4,6 +4,7 @@ import Products from '../components/Products'
 
 export default function ProductsPage({
   products,
+  cart,
   loading,
   loadingMore,
   hasMoreProducts,
@@ -21,6 +22,7 @@ export default function ProductsPage({
       ) : (
         <Products
           products={products}
+          cart={cart}
           addToCart={addToCart}
           addingProductIds={addingProductIds}
           loadingMore={loadingMore}
