@@ -37,7 +37,7 @@ export default function ProductCard({
       <div className="product-info">
         <div className="product-name">{product.name}</div>
         <div className="product-desc">{product.description}</div>
-        <div className="product-price">${parseFloat(product.price).toFixed(2)}</div>
+        <div className="product-price">₹{parseFloat(product.price).toFixed(2)}</div>
         <div className="product-stock">Stock: {product.stock || 0}</div>
 
         {!isAdminView && cartQuantity > 0 && (

@@ -105,7 +105,7 @@ export default function Cart({
             <div className="cart-item" key={item.product_id}>
               <div className="cart-item-info">
                 <h4>{item.product_name}</h4>
-                <span className="cart-item-price-unit">${item.unit_price.toFixed(2)} each</span>
+                <span className="cart-item-price-unit">₹{item.unit_price.toFixed(2)} each</span>
                 <div className="quantity-controls" aria-label={`Quantity controls for ${item.product_name}`}>
                   <button
                     type="button"
@@ -130,7 +130,7 @@ export default function Cart({
               </div>
               <div className="cart-item-right">
                 <div className="cart-item-total">
-                  ${(item.unit_price * item.quantity).toFixed(2)}
+                  ₹{(item.unit_price * item.quantity).toFixed(2)}
                 </div>
                 <button
                   className="btn-remove"
@@ -145,7 +145,7 @@ export default function Cart({
 
           <div className="cart-total-bar">
             <span>Subtotal ({count} item{count !== 1 ? 's' : ''})</span>
-            <span className="cart-total-amount">${total.toFixed(2)}</span>
+            <span className="cart-total-amount">₹{total.toFixed(2)}</span>
           </div>
         </div>
 
@@ -192,7 +192,7 @@ export default function Cart({
               <div className="order-summary-box">
                 <div className="summary-row">
                   <span>Subtotal</span>
-                  <span>${total.toFixed(2)}</span>
+                  <span>₹{total.toFixed(2)}</span>
                 </div>
                 <div className="summary-row">
                   <span>Shipping</span>
@@ -200,13 +200,13 @@ export default function Cart({
                 </div>
                 <div className="summary-row summary-total">
                   <span>Total</span>
-                  <span>${total.toFixed(2)}</span>
+                  <span>₹{total.toFixed(2)}</span>
                 </div>
               </div>
 
               {isCheckingOut && <Loader message="Placing your order..." />}
               <button type="submit" className="btn-primary" disabled={isCheckingOut}>
-                {isCheckingOut ? 'Placing Order...' : `Place Order · $${total.toFixed(2)}`}
+                {isCheckingOut ? 'Placing Order...' : `Place Order · ₹${total.toFixed(2)}`}
               </button>
             </form>
           </div>

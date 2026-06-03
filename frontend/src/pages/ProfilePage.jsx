@@ -69,7 +69,7 @@ export default function ProfilePage({ orders, loadUserOrders, onLogout }) {
           <span className="profile-stat-label">Delivered</span>
         </div>
         <div className="profile-stat">
-          <span className="profile-stat-value">${totalSpent.toFixed(2)}</span>
+          <span className="profile-stat-value">₹{totalSpent.toFixed(2)}</span>
           <span className="profile-stat-label">Total Spent</span>
         </div>
       </div>
@@ -116,7 +116,7 @@ export default function ProfilePage({ orders, loadUserOrders, onLogout }) {
                   <span className="order-date-sm">{new Date(order.created_at).toLocaleDateString()}</span>
                 </div>
                 <div className="recent-order-right">
-                  <span>${parseFloat(order.total_price || 0).toFixed(2)}</span>
+                  <span>₹{parseFloat(order.total_price || 0).toFixed(2)}</span>
                   <StatusBadge status={order.status} />
                 </div>
               </div>

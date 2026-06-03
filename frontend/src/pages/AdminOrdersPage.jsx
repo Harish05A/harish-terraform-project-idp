@@ -25,7 +25,7 @@ function OrderItems({ items }) {
         <div key={item.product_id} className="order-item-row">
           <span>{item.product_name}</span>
           <span>×{item.quantity}</span>
-          <span>${parseFloat(item.total_price || 0).toFixed(2)}</span>
+          <span>₹{parseFloat(item.total_price || 0).toFixed(2)}</span>
         </div>
       ))}
     </div>
@@ -120,7 +120,7 @@ export default function AdminOrdersPage({ allOrders, allOrdersLoading, loadAllOr
                   <span className="order-date">{new Date(order.created_at).toLocaleDateString()}</span>
                 </div>
                 <div className="admin-order-right">
-                  <span className="order-total">${parseFloat(order.total_price || 0).toFixed(2)}</span>
+                  <span className="order-total">₹{parseFloat(order.total_price || 0).toFixed(2)}</span>
                   <StatusBadge status={order.status} />
                   <select
                     className="status-select"

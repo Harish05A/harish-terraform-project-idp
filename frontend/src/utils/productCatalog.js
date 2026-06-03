@@ -94,8 +94,8 @@ export function enrichProduct(product) {
 
 export const priceRanges = [
   { label: 'All Prices', value: 'all', min: 0, max: Infinity },
-  { label: 'Under $300', value: 'under-300', min: 0, max: 300 },
-  { label: '$300 - $900', value: '300-900', min: 300, max: 900 },
-  { label: '$900 - $1,500', value: '900-1500', min: 900, max: 1500 },
-  { label: '$1,500+', value: '1500-plus', min: 1500, max: Infinity }
+  { label: 'Under ₹300', value: 'under-300', min: 0, max: 300 },
+  { label: '₹300 - ₹900', value: '300-900', min: 300, max: 900 },
+  { label: '₹900 - ₹1,500', value: '900-1500', min: 900, max: 1500 },
+  { label: '₹1,500+', value: '1500-plus', min: 1500, max: Infinity }
 ]

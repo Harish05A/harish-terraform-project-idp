@@ -109,9 +109,9 @@ export default function AdminDashboardPage({
           color="#2563eb"
         />
         <StatCard
-          iconClass="fa-solid fa-dollar-sign"
+          iconClass="fa-solid fa-indian-rupee-sign"
           label="Total Revenue"
-          value={`$${stats.totalRevenue.toFixed(2)}`}
+          value={`₹${stats.totalRevenue.toFixed(2)}`}
           sub="Excluding cancelled"
           color="#059669"
         />
@@ -156,7 +156,7 @@ export default function AdminDashboardPage({
                   <span className="top-rank">#{i + 1}</span>
                   <span className="top-name">{data.name || pid}</span>
                   <span className="top-count">{data.count} sold</span>
-                  <span className="top-revenue">${data.revenue.toFixed(2)}</span>
+                  <span className="top-revenue">₹{data.revenue.toFixed(2)}</span>
                 </div>
               ))}
             </div>
@@ -189,7 +189,7 @@ export default function AdminDashboardPage({
                 <span className="order-id-cell">#{order.order_id.substring(0, 8)}</span>
                 <span>{order.user_id}</span>
                 <span>{new Date(order.created_at).toLocaleDateString()}</span>
-                <span className="order-total-cell">${parseFloat(order.total_price || 0).toFixed(2)}</span>
+                <span className="order-total-cell">₹{parseFloat(order.total_price || 0).toFixed(2)}</span>
                 <span><StatusBadge status={order.status} /></span>
                 <span>
                   <select

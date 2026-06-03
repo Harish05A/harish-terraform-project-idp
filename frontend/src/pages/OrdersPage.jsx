@@ -160,7 +160,7 @@ export default function OrdersPage({
                   <span className="order-date-sm">{new Date(order.created_at).toLocaleDateString()}</span>
                 </div>
                 <div className="customer-order-right">
-                  <span className="order-total">${parseFloat(order.total_price || 0).toFixed(2)}</span>
+                  <span className="order-total">₹{parseFloat(order.total_price || 0).toFixed(2)}</span>
                   <StatusBadge status={order.status} />
                 </div>
               </div>

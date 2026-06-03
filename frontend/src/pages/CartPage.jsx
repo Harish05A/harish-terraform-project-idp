@@ -35,7 +35,7 @@ function OrderConfirmation({
       <div className="confirmation-details">
         <div className="confirmation-row">
           <span>Total</span>
-          <strong>${parseFloat(order.total_price || 0).toFixed(2)}</strong>
+          <strong>₹{parseFloat(order.total_price || 0).toFixed(2)}</strong>
         </div>
         <div className="confirmation-row">
           <span>Shipping to</span>

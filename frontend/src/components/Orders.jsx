@@ -54,7 +54,7 @@ export default function Orders({ orders, loadUserOrders, loading, error }) {
               <span className={`order-status ${order.status}`}>{order.status}</span>
             </div>
             <div className="order-details">
-              <p>Total: ${parseFloat(order.total_price).toFixed(2)} | Items: {order.total_items}</p>
+              <p>Total: ₹{parseFloat(order.total_price).toFixed(2)} | Items: {order.total_items}</p>
               <p>Shipping: {order.shipping_address}</p>
             </div>
           </div>
