@@ -24,26 +24,17 @@ locals {
   }
 }
 
-# Block public access settings
+# Block all public access — CloudFront OAC is the only allowed reader
 resource "aws_s3_bucket_public_access_block" "frontend" {
   bucket = aws_s3_bucket.frontend.id
 
-  block_public_acls       = false
-  block_public_policy     = false
-  ignore_public_acls      = false
-  restrict_public_buckets = false
-
-  lifecycle {
-    ignore_changes = [
-      block_public_acls,
-      block_public_policy,
-      ignore_public_acls,
-      restrict_public_buckets
-    ]
-  }
+  block_public_acls       = true
+  block_public_policy     = true
+  ignore_public_acls      = true
+  restrict_public_buckets = true
 }
 
-# Bucket policy for public read access
+# Bucket policy: allow GetObject only from this CloudFront distribution via OAC
 resource "aws_s3_bucket_policy" "frontend" {
   bucket = aws_s3_bucket.frontend.id
 
@@ -51,16 +42,26 @@ resource "aws_s3_bucket_policy" "frontend" {
     Version = "2012-10-17"
     Statement = [
       {
-        Sid       = "PublicReadGetObject"
-        Effect    = "Allow"
-        Principal = "*"
-        Action    = "s3:GetObject"
-        Resource  = "${aws_s3_bucket.frontend.arn}/*"
+        Sid    = "AllowCloudFrontOACGetObject"
+        Effect = "Allow"
+        Principal = {
+          Service = "cloudfront.amazonaws.com"
+        }
+        Action   = "s3:GetObject"
+        Resource = "${aws_s3_bucket.frontend.arn}/*"
+        Condition = {
+          StringEquals = {
+            "AWS:SourceArn" = aws_cloudfront_distribution.frontend.arn
+          }
+        }
       }
     ]
   })
 
-  depends_on = [aws_s3_bucket_public_access_block.frontend]
+  depends_on = [
+    aws_s3_bucket_public_access_block.frontend,
+    aws_cloudfront_distribution.frontend,
+  ]
 }
 
 # Enable static website hosting

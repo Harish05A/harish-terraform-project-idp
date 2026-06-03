@@ -64,7 +64,7 @@ export default function AddProduct({ showAlert, loadProducts }) {
               />
             </div>
             <div className="form-group">
-              <label>Price (USD)</label>
+              <label>Price (INR)</label>
               <input
                 type="number"
                 step="0.01"

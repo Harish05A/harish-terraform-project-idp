@@ -134,7 +134,7 @@ resource "aws_lambda_function" "monitor_lambda" {
     variables = {
       REGION_NAME = var.aws_region
       # URL       = "http://wrong-url"
-      URL       = "http://${replace(aws_s3_bucket_website_configuration.frontend.website_endpoint, "http://", "")}"
+      URL       = "https://${aws_cloudfront_distribution.frontend.domain_name}"
       TOPIC_ARN = aws_sns_topic.frontend_alerts.arn
     }
   }

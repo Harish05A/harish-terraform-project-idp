@@ -134,13 +134,23 @@ output "frontend_bucket_name" {
 }
 
 output "frontend_website_url" {
-  description = "Frontend website URL"
-  value       = aws_s3_bucket_website_configuration.frontend.website_endpoint
+  description = "Frontend website URL (CloudFront)"
+  value       = "https://${aws_cloudfront_distribution.frontend.domain_name}"
 }
 
 output "frontend_url" {
-  description = "Frontend application URL"
-  value       = "http://${aws_s3_bucket_website_configuration.frontend.website_endpoint}"
+  description = "Frontend application URL (CloudFront HTTPS)"
+  value       = "https://${aws_cloudfront_distribution.frontend.domain_name}"
+}
+
+output "cloudfront_distribution_id" {
+  description = "CloudFront distribution ID (needed for cache invalidation on deploy)"
+  value       = aws_cloudfront_distribution.frontend.id
+}
+
+output "cloudfront_domain_name" {
+  description = "CloudFront distribution domain name"
+  value       = aws_cloudfront_distribution.frontend.domain_name
 }
 
 output "frontend_health_check_id" {
@@ -165,7 +175,7 @@ output "frontend_health_check_id" {
 output "system_summary" {
   description = "Complete system information"
   value = {
-    frontend_url = "http://${aws_s3_bucket_website_configuration.frontend.website_endpoint}"
+    frontend_url = "https://${aws_cloudfront_distribution.frontend.domain_name}"
     api_url      = "${aws_apigatewayv2_api.product_api.api_endpoint}/"
     api_v1_url   = "${aws_apigatewayv2_api.product_api.api_endpoint}/v1/"
     region       = var.aws_region

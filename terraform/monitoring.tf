@@ -3,21 +3,17 @@
 # =====================
 
 resource "aws_route53_health_check" "frontend_health_check" {
-  failure_threshold             = 2
-  request_interval              = 30
-  resource_path                 = "/error"
-  fqdn = replace(
-  aws_s3_bucket_website_configuration.frontend.website_endpoint,
-  "http://",
-  ""
-)
-  type                          = "HTTP"
-  regions                       = ["ap-southeast-1", "ap-southeast-2", "ap-northeast-1"]
-  port = 80
+  failure_threshold = 2
+  request_interval  = 30
+  resource_path     = "/"
+  fqdn              = aws_cloudfront_distribution.frontend.domain_name
+  type              = "HTTPS"
+  regions           = ["ap-southeast-1", "ap-southeast-2", "ap-northeast-1"]
+  port              = 443
 
   lifecycle {
-  ignore_changes = [tags]
-}
+    ignore_changes = [tags]
+  }
 }
 
 resource "aws_sns_topic" "frontend_alerts" {
