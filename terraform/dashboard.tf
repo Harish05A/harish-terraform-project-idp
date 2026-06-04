@@ -254,13 +254,13 @@ resource "aws_cloudwatch_dashboard" "main" {
         height = 4
         properties = {
           metrics = [
-            [ "AWS/Route53", "HealthCheckStatus", "HealthCheckId", aws_route53_health_check.frontend_health_check.id ]
+            ["AWS/Route53", "HealthCheckStatus", "HealthCheckId", aws_route53_health_check.frontend_health_check.id]
           ]
-          view    = "singleValue"
-          region  = "us-east-1"
-          title   = "Frontend Availability (Route53)"
-          period  = 60
-          stat    = "Minimum"
+          view   = "singleValue"
+          region = "us-east-1"
+          title  = "Frontend Availability (Route53)"
+          period = 60
+          stat   = "Minimum"
         }
       },
       {
@@ -271,13 +271,13 @@ resource "aws_cloudwatch_dashboard" "main" {
         height = 4
         properties = {
           metrics = [
-            [ "AWS/ApiGateway", "Count", "ApiId", aws_apigatewayv2_api.product_api.id, { "label": "Requests (Sum)", "stat": "Sum" } ],
-            [ "AWS/ApiGateway", "Latency", "ApiId", aws_apigatewayv2_api.product_api.id, { "label": "Avg Latency (ms)", "stat": "Average", "yAxis": "right" } ]
+            ["AWS/ApiGateway", "Count", "ApiId", aws_apigatewayv2_api.product_api.id, { "label" : "Requests (Sum)", "stat" : "Sum" }],
+            ["AWS/ApiGateway", "Latency", "ApiId", aws_apigatewayv2_api.product_api.id, { "label" : "Avg Latency (ms)", "stat" : "Average", "yAxis" : "right" }]
           ]
-          view    = "timeSeries"
-          region  = var.aws_region
-          title   = "API Gateway Traffic & Performance"
-          period  = 60
+          view   = "timeSeries"
+          region = var.aws_region
+          title  = "API Gateway Traffic & Performance"
+          period = 60
         }
       },
       {
@@ -288,13 +288,13 @@ resource "aws_cloudwatch_dashboard" "main" {
         height = 4
         properties = {
           metrics = [
-            [ "AWS/CloudFront", "Requests", "DistributionId", aws_cloudfront_distribution.frontend.id, "Region", "Global", { "label": "CDN Requests", "stat": "Sum" } ],
-            [ "AWS/CloudFront", "TotalErrorRate", "DistributionId", aws_cloudfront_distribution.frontend.id, "Region", "Global", { "label": "CDN Error Rate (%)", "stat": "Average", "yAxis": "right" } ]
+            ["AWS/CloudFront", "Requests", "DistributionId", aws_cloudfront_distribution.frontend.id, "Region", "Global", { "label" : "CDN Requests", "stat" : "Sum" }],
+            ["AWS/CloudFront", "TotalErrorRate", "DistributionId", aws_cloudfront_distribution.frontend.id, "Region", "Global", { "label" : "CDN Error Rate (%)", "stat" : "Average", "yAxis" : "right" }]
           ]
-          view    = "timeSeries"
-          region  = "us-east-1"
-          title   = "CDN CloudFront Edge Traffic"
-          period  = 60
+          view   = "timeSeries"
+          region = "us-east-1"
+          title  = "CDN CloudFront Edge Traffic"
+          period = 60
         }
       },
 
@@ -317,13 +317,13 @@ resource "aws_cloudwatch_dashboard" "main" {
         height = 6
         properties = {
           metrics = [
-            [ "ECommerceSystem", "SuccessfulOrders", { "stat": "Sum", "label": "Successful Orders", "color": "#2ca02c" } ],
-            [ "ECommerceSystem", "FailedOrders", { "stat": "Sum", "label": "Failed Orders", "color": "#d62728" } ]
+            ["ECommerceSystem", "SuccessfulOrders", { "stat" : "Sum", "label" : "Successful Orders", "color" : "#2ca02c" }],
+            ["ECommerceSystem", "FailedOrders", { "stat" : "Sum", "label" : "Failed Orders", "color" : "#d62728" }]
           ]
-          view    = "timeSeries"
-          region  = var.aws_region
-          title   = "Order Status Trends"
-          period  = 60
+          view   = "timeSeries"
+          region = var.aws_region
+          title  = "Order Status Trends"
+          period = 60
         }
       },
       {
@@ -334,12 +334,12 @@ resource "aws_cloudwatch_dashboard" "main" {
         height = 6
         properties = {
           metrics = [
-            [ "ECommerceSystem", "RevenueGenerated", { "stat": "Sum", "label": "Total Revenue ($)", "color": "#1f77b4" } ]
+            ["ECommerceSystem", "RevenueGenerated", { "stat" : "Sum", "label" : "Total Revenue ($)", "color" : "#1f77b4" }]
           ]
-          view    = "timeSeries"
-          region  = var.aws_region
-          title   = "Revenue Generated"
-          period  = 60
+          view   = "timeSeries"
+          region = var.aws_region
+          title  = "Revenue Generated"
+          period = 60
         }
       },
 
@@ -362,15 +362,15 @@ resource "aws_cloudwatch_dashboard" "main" {
         height = 6
         properties = {
           metrics = [
-            [ "AWS/ApiGateway", "Latency", "ApiId", aws_apigatewayv2_api.product_api.id, { "stat": "p50", "label": "p50 Latency" } ],
-            [ "AWS/ApiGateway", "Latency", "ApiId", aws_apigatewayv2_api.product_api.id, { "stat": "p90", "label": "p90 Latency" } ],
-            [ "AWS/ApiGateway", "Latency", "ApiId", aws_apigatewayv2_api.product_api.id, { "stat": "p95", "label": "p95 Latency" } ],
-            [ "AWS/ApiGateway", "Latency", "ApiId", aws_apigatewayv2_api.product_api.id, { "stat": "p99", "label": "p99 Latency" } ]
+            ["AWS/ApiGateway", "Latency", "ApiId", aws_apigatewayv2_api.product_api.id, { "stat" : "p50", "label" : "p50 Latency" }],
+            ["AWS/ApiGateway", "Latency", "ApiId", aws_apigatewayv2_api.product_api.id, { "stat" : "p90", "label" : "p90 Latency" }],
+            ["AWS/ApiGateway", "Latency", "ApiId", aws_apigatewayv2_api.product_api.id, { "stat" : "p95", "label" : "p95 Latency" }],
+            ["AWS/ApiGateway", "Latency", "ApiId", aws_apigatewayv2_api.product_api.id, { "stat" : "p99", "label" : "p99 Latency" }]
           ]
-          view    = "timeSeries"
-          region  = var.aws_region
-          title   = "API Gateway Latency Percentiles"
-          period  = 60
+          view   = "timeSeries"
+          region = var.aws_region
+          title  = "API Gateway Latency Percentiles"
+          period = 60
         }
       },
       {
@@ -381,13 +381,13 @@ resource "aws_cloudwatch_dashboard" "main" {
         height = 6
         properties = {
           metrics = [
-            [ "AWS/ApiGateway", "4XXError", "ApiId", aws_apigatewayv2_api.product_api.id, { "stat": "Sum", "label": "4XX Errors", "color": "#f8b739" } ],
-            [ "AWS/ApiGateway", "5XXError", "ApiId", aws_apigatewayv2_api.product_api.id, { "stat": "Sum", "label": "5XX Errors", "color": "#d13212" } ]
+            ["AWS/ApiGateway", "4XXError", "ApiId", aws_apigatewayv2_api.product_api.id, { "stat" : "Sum", "label" : "4XX Errors", "color" : "#f8b739" }],
+            ["AWS/ApiGateway", "5XXError", "ApiId", aws_apigatewayv2_api.product_api.id, { "stat" : "Sum", "label" : "5XX Errors", "color" : "#d13212" }]
           ]
-          view    = "timeSeries"
-          region  = var.aws_region
-          title   = "API Gateway Client vs Server Errors"
-          period  = 60
+          view   = "timeSeries"
+          region = var.aws_region
+          title  = "API Gateway Client vs Server Errors"
+          period = 60
         }
       },
 
@@ -410,14 +410,14 @@ resource "aws_cloudwatch_dashboard" "main" {
         height = 6
         properties = {
           metrics = [
-            [ "AWS/Lambda", "Invocations", "FunctionName", aws_lambda_function.product.function_name, { "stat": "Sum", "label": "Product Invocations" } ],
-            [ "AWS/Lambda", "Errors", "FunctionName", aws_lambda_function.product.function_name, { "stat": "Sum", "label": "Product Errors", "color": "#d13212" } ],
-            [ "AWS/Lambda", "Invocations", "FunctionName", aws_lambda_function.cart.function_name, { "stat": "Sum", "label": "Cart Invocations" } ],
-            [ "AWS/Lambda", "Errors", "FunctionName", aws_lambda_function.cart.function_name, { "stat": "Sum", "label": "Cart Errors", "color": "#ff4d4d" } ],
-            [ "AWS/Lambda", "Invocations", "FunctionName", aws_lambda_function.order.function_name, { "stat": "Sum", "label": "Order Invocations" } ],
-            [ "AWS/Lambda", "Errors", "FunctionName", aws_lambda_function.order.function_name, { "stat": "Sum", "label": "Order Errors", "color": "#ff9999" } ],
-            [ "AWS/Lambda", "Invocations", "FunctionName", aws_lambda_function.monitor_lambda.function_name, { "stat": "Sum", "label": "Monitor Invocations" } ],
-            [ "AWS/Lambda", "Errors", "FunctionName", aws_lambda_function.monitor_lambda.function_name, { "stat": "Sum", "label": "Monitor Errors", "color": "#ffcccc" } ]
+            ["AWS/Lambda", "Invocations", "FunctionName", aws_lambda_function.product.function_name, { "stat" : "Sum", "label" : "Product Invocations" }],
+            ["AWS/Lambda", "Errors", "FunctionName", aws_lambda_function.product.function_name, { "stat" : "Sum", "label" : "Product Errors", "color" : "#d13212" }],
+            ["AWS/Lambda", "Invocations", "FunctionName", aws_lambda_function.cart.function_name, { "stat" : "Sum", "label" : "Cart Invocations" }],
+            ["AWS/Lambda", "Errors", "FunctionName", aws_lambda_function.cart.function_name, { "stat" : "Sum", "label" : "Cart Errors", "color" : "#ff4d4d" }],
+            ["AWS/Lambda", "Invocations", "FunctionName", aws_lambda_function.order.function_name, { "stat" : "Sum", "label" : "Order Invocations" }],
+            ["AWS/Lambda", "Errors", "FunctionName", aws_lambda_function.order.function_name, { "stat" : "Sum", "label" : "Order Errors", "color" : "#ff9999" }],
+            ["AWS/Lambda", "Invocations", "FunctionName", aws_lambda_function.monitor_lambda.function_name, { "stat" : "Sum", "label" : "Monitor Invocations" }],
+            ["AWS/Lambda", "Errors", "FunctionName", aws_lambda_function.monitor_lambda.function_name, { "stat" : "Sum", "label" : "Monitor Errors", "color" : "#ffcccc" }]
           ]
           view    = "timeSeries"
           region  = var.aws_region
@@ -434,19 +434,19 @@ resource "aws_cloudwatch_dashboard" "main" {
         height = 6
         properties = {
           metrics = [
-            [ "AWS/Lambda", "Duration", "FunctionName", aws_lambda_function.product.function_name, { "stat": "Average", "label": "Product Avg Duration" } ],
-            [ "AWS/Lambda", "Duration", "FunctionName", aws_lambda_function.product.function_name, { "stat": "Maximum", "label": "Product Max Duration" } ],
-            [ "AWS/Lambda", "Duration", "FunctionName", aws_lambda_function.cart.function_name, { "stat": "Average", "label": "Cart Avg Duration" } ],
-            [ "AWS/Lambda", "Duration", "FunctionName", aws_lambda_function.cart.function_name, { "stat": "Maximum", "label": "Cart Max Duration" } ],
-            [ "AWS/Lambda", "Duration", "FunctionName", aws_lambda_function.order.function_name, { "stat": "Average", "label": "Order Avg Duration" } ],
-            [ "AWS/Lambda", "Duration", "FunctionName", aws_lambda_function.order.function_name, { "stat": "Maximum", "label": "Order Max Duration" } ],
-            [ "AWS/Lambda", "Duration", "FunctionName", aws_lambda_function.monitor_lambda.function_name, { "stat": "Average", "label": "Monitor Avg Duration" } ],
-            [ "AWS/Lambda", "Duration", "FunctionName", aws_lambda_function.monitor_lambda.function_name, { "stat": "Maximum", "label": "Monitor Max Duration" } ]
+            ["AWS/Lambda", "Duration", "FunctionName", aws_lambda_function.product.function_name, { "stat" : "Average", "label" : "Product Avg Duration" }],
+            ["AWS/Lambda", "Duration", "FunctionName", aws_lambda_function.product.function_name, { "stat" : "Maximum", "label" : "Product Max Duration" }],
+            ["AWS/Lambda", "Duration", "FunctionName", aws_lambda_function.cart.function_name, { "stat" : "Average", "label" : "Cart Avg Duration" }],
+            ["AWS/Lambda", "Duration", "FunctionName", aws_lambda_function.cart.function_name, { "stat" : "Maximum", "label" : "Cart Max Duration" }],
+            ["AWS/Lambda", "Duration", "FunctionName", aws_lambda_function.order.function_name, { "stat" : "Average", "label" : "Order Avg Duration" }],
+            ["AWS/Lambda", "Duration", "FunctionName", aws_lambda_function.order.function_name, { "stat" : "Maximum", "label" : "Order Max Duration" }],
+            ["AWS/Lambda", "Duration", "FunctionName", aws_lambda_function.monitor_lambda.function_name, { "stat" : "Average", "label" : "Monitor Avg Duration" }],
+            ["AWS/Lambda", "Duration", "FunctionName", aws_lambda_function.monitor_lambda.function_name, { "stat" : "Maximum", "label" : "Monitor Max Duration" }]
           ]
-          view    = "timeSeries"
-          region  = var.aws_region
-          title   = "Lambda Execution Durations (ms)"
-          period  = 60
+          view   = "timeSeries"
+          region = var.aws_region
+          title  = "Lambda Execution Durations (ms)"
+          period = 60
         }
       },
 
@@ -469,17 +469,17 @@ resource "aws_cloudwatch_dashboard" "main" {
         height = 6
         properties = {
           metrics = [
-            [ "AWS/DynamoDB", "ConsumedReadCapacityUnits", "TableName", aws_dynamodb_table.products.name, { "stat": "Sum", "label": "Products Read Capacity" } ],
-            [ "AWS/DynamoDB", "ConsumedWriteCapacityUnits", "TableName", aws_dynamodb_table.products.name, { "stat": "Sum", "label": "Products Write Capacity" } ],
-            [ "AWS/DynamoDB", "ConsumedReadCapacityUnits", "TableName", aws_dynamodb_table.carts.name, { "stat": "Sum", "label": "Carts Read Capacity" } ],
-            [ "AWS/DynamoDB", "ConsumedWriteCapacityUnits", "TableName", aws_dynamodb_table.carts.name, { "stat": "Sum", "label": "Carts Write Capacity" } ],
-            [ "AWS/DynamoDB", "ConsumedReadCapacityUnits", "TableName", aws_dynamodb_table.orders.name, { "stat": "Sum", "label": "Orders Read Capacity" } ],
-            [ "AWS/DynamoDB", "ConsumedWriteCapacityUnits", "TableName", aws_dynamodb_table.orders.name, { "stat": "Sum", "label": "Orders Write Capacity" } ]
+            ["AWS/DynamoDB", "ConsumedReadCapacityUnits", "TableName", aws_dynamodb_table.products.name, { "stat" : "Sum", "label" : "Products Read Capacity" }],
+            ["AWS/DynamoDB", "ConsumedWriteCapacityUnits", "TableName", aws_dynamodb_table.products.name, { "stat" : "Sum", "label" : "Products Write Capacity" }],
+            ["AWS/DynamoDB", "ConsumedReadCapacityUnits", "TableName", aws_dynamodb_table.carts.name, { "stat" : "Sum", "label" : "Carts Read Capacity" }],
+            ["AWS/DynamoDB", "ConsumedWriteCapacityUnits", "TableName", aws_dynamodb_table.carts.name, { "stat" : "Sum", "label" : "Carts Write Capacity" }],
+            ["AWS/DynamoDB", "ConsumedReadCapacityUnits", "TableName", aws_dynamodb_table.orders.name, { "stat" : "Sum", "label" : "Orders Read Capacity" }],
+            ["AWS/DynamoDB", "ConsumedWriteCapacityUnits", "TableName", aws_dynamodb_table.orders.name, { "stat" : "Sum", "label" : "Orders Write Capacity" }]
           ]
-          view    = "timeSeries"
-          region  = var.aws_region
-          title   = "DynamoDB Consumed Capacity Units"
-          period  = 60
+          view   = "timeSeries"
+          region = var.aws_region
+          title  = "DynamoDB Consumed Capacity Units"
+          period = 60
         }
       },
       {
@@ -490,17 +490,17 @@ resource "aws_cloudwatch_dashboard" "main" {
         height = 6
         properties = {
           metrics = [
-            [ "AWS/DynamoDB", "ReadThrottleEvents", "TableName", aws_dynamodb_table.products.name, { "stat": "Sum", "label": "Products Read Throttles" } ],
-            [ "AWS/DynamoDB", "WriteThrottleEvents", "TableName", aws_dynamodb_table.products.name, { "stat": "Sum", "label": "Products Write Throttles" } ],
-            [ "AWS/DynamoDB", "ReadThrottleEvents", "TableName", aws_dynamodb_table.carts.name, { "stat": "Sum", "label": "Carts Read Throttles" } ],
-            [ "AWS/DynamoDB", "WriteThrottleEvents", "TableName", aws_dynamodb_table.carts.name, { "stat": "Sum", "label": "Carts Write Throttles" } ],
-            [ "AWS/DynamoDB", "ReadThrottleEvents", "TableName", aws_dynamodb_table.orders.name, { "stat": "Sum", "label": "Orders Read Throttles" } ],
-            [ "AWS/DynamoDB", "WriteThrottleEvents", "TableName", aws_dynamodb_table.orders.name, { "stat": "Sum", "label": "Orders Write Throttles" } ]
+            ["AWS/DynamoDB", "ReadThrottleEvents", "TableName", aws_dynamodb_table.products.name, { "stat" : "Sum", "label" : "Products Read Throttles" }],
+            ["AWS/DynamoDB", "WriteThrottleEvents", "TableName", aws_dynamodb_table.products.name, { "stat" : "Sum", "label" : "Products Write Throttles" }],
+            ["AWS/DynamoDB", "ReadThrottleEvents", "TableName", aws_dynamodb_table.carts.name, { "stat" : "Sum", "label" : "Carts Read Throttles" }],
+            ["AWS/DynamoDB", "WriteThrottleEvents", "TableName", aws_dynamodb_table.carts.name, { "stat" : "Sum", "label" : "Carts Write Throttles" }],
+            ["AWS/DynamoDB", "ReadThrottleEvents", "TableName", aws_dynamodb_table.orders.name, { "stat" : "Sum", "label" : "Orders Read Throttles" }],
+            ["AWS/DynamoDB", "WriteThrottleEvents", "TableName", aws_dynamodb_table.orders.name, { "stat" : "Sum", "label" : "Orders Write Throttles" }]
           ]
-          view    = "timeSeries"
-          region  = var.aws_region
-          title   = "DynamoDB Throttling Events"
-          period  = 60
+          view   = "timeSeries"
+          region = var.aws_region
+          title  = "DynamoDB Throttling Events"
+          period = 60
         }
       },
 

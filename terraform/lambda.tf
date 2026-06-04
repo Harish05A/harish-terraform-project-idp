@@ -108,11 +108,11 @@ resource "aws_lambda_function" "order" {
 
   environment {
     variables = {
-      REGION_NAME  = var.aws_region
-      ORDERS_TABLE = "${var.project_name}-orders"
-      CARTS_TABLE  = "${var.project_name}-carts"
+      REGION_NAME    = var.aws_region
+      ORDERS_TABLE   = "${var.project_name}-orders"
+      CARTS_TABLE    = "${var.project_name}-carts"
       PRODUCTS_TABLE = "${var.project_name}-products"
-      TOPIC_ARN    = aws_sns_topic.frontend_alerts.arn
+      TOPIC_ARN      = aws_sns_topic.frontend_alerts.arn
     }
   }
 

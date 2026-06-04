@@ -159,8 +159,8 @@ resource "aws_iam_role_policy" "order_lambda_dynamodb" {
 
 data "aws_iam_policy_document" "order_lambda_sns" {
   statement {
-    effect = "Allow"
-    actions = ["sns:Publish"]
+    effect    = "Allow"
+    actions   = ["sns:Publish"]
     resources = [aws_sns_topic.frontend_alerts.arn]
   }
 }

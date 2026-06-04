@@ -39,12 +39,12 @@ resource "aws_xray_sampling_rule" "low_cost" {
   reservoir_size = 1
   fixed_rate     = 0.10
 
-  host           = "*"
-  http_method    = "*"
-  url_path       = "*"
-  service_name   = "*"
-  service_type   = "*"
-  resource_arn   = "*"
+  host         = "*"
+  http_method  = "*"
+  url_path     = "*"
+  service_name = "*"
+  service_type = "*"
+  resource_arn = "*"
 }
 
 
