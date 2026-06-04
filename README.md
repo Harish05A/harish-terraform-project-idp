@@ -122,9 +122,9 @@ flowchart TD
 
 ## API Endpoints & URLs
 
-- **Frontend URL**: `${frontend_url}` (CloudFront distribution URL)
-- **S3 Bucket URL**: `https://${aws_s3_bucket.frontend.bucket_regional_domain_name}`
-- **API Base URL**: `${api_endpoint}` (API Gateway base URL)
+- **Frontend URL**: `https://dkqvng2r6hn4j.cloudfront.net`
+- **S3 Bucket Name**: `harish-tf-frontend-726101441380`
+- **API URL**: `https://490z9zcjr8.execute-api.ap-southeast-1.amazonaws.com/v1/`
 
 ### Service Endpoints
 
