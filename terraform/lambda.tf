@@ -107,6 +107,10 @@ resource "aws_lambda_function" "order" {
 
   timeout = 30
 
+  tracing_config {
+    mode = "Active"
+  }
+
   depends_on = [
     aws_iam_role_policy_attachment.order_lambda_basic_execution,
     aws_iam_role_policy.order_lambda_dynamodb
@@ -138,4 +142,48 @@ resource "aws_lambda_function" "monitor_lambda" {
       TOPIC_ARN = aws_sns_topic.frontend_alerts.arn
     }
   }
+}
+
+# =====================================================
+# CloudWatch Log Groups & Imports for Lambdas
+# =====================================================
+
+import {
+  to = aws_cloudwatch_log_group.product_lambda_logs
+  id = "/aws/lambda/${var.project_name}-product"
+}
+
+resource "aws_cloudwatch_log_group" "product_lambda_logs" {
+  name              = "/aws/lambda/${var.project_name}-product"
+  retention_in_days = 7
+}
+
+import {
+  to = aws_cloudwatch_log_group.cart_lambda_logs
+  id = "/aws/lambda/${var.project_name}-cart"
+}
+
+resource "aws_cloudwatch_log_group" "cart_lambda_logs" {
+  name              = "/aws/lambda/${var.project_name}-cart"
+  retention_in_days = 7
+}
+
+import {
+  to = aws_cloudwatch_log_group.order_lambda_logs
+  id = "/aws/lambda/${var.project_name}-order"
+}
+
+resource "aws_cloudwatch_log_group" "order_lambda_logs" {
+  name              = "/aws/lambda/${var.project_name}-order"
+  retention_in_days = 7
+}
+
+import {
+  to = aws_cloudwatch_log_group.monitor_lambda_logs
+  id = "/aws/lambda/${var.project_name}-monitor"
+}
+
+resource "aws_cloudwatch_log_group" "monitor_lambda_logs" {
+  name              = "/aws/lambda/${var.project_name}-monitor"
+  retention_in_days = 7
 }

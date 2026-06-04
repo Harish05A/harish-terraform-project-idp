@@ -29,7 +29,7 @@ resource "aws_apigatewayv2_api" "product_api" {
 
 resource "aws_cloudwatch_log_group" "api_gateway_logs" {
   name              = "/aws/apigateway/${var.project_name}-product-api"
-  retention_in_days = 14
+  retention_in_days = 7
 }
 
 # =====================

@@ -112,6 +112,11 @@ resource "aws_iam_role_policy_attachment" "order_lambda_basic_execution" {
   policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
 }
 
+resource "aws_iam_role_policy_attachment" "order_lambda_xray" {
+  role       = aws_iam_role.order_lambda_role.name
+  policy_arn = "arn:aws:iam::aws:policy/AWSXRayDaemonWriteAccess"
+}
+
 # Policy for DynamoDB access (Orders and Carts tables)
 data "aws_iam_policy_document" "order_lambda_dynamodb" {
   statement {

@@ -28,4 +28,23 @@ resource "aws_sns_topic_subscription" "email_alert" {
   endpoint  = var.alert_email
 }
 
+# =====================================================
+# X-Ray Sampling Rule (Low Cost)
+# =====================================================
+
+resource "aws_xray_sampling_rule" "low_cost" {
+  rule_name      = "low-cost-sampling"
+  priority       = 1000
+  version        = 1
+  reservoir_size = 1
+  fixed_rate     = 0.05
+
+  host           = "*"
+  http_method    = "*"
+  url_path       = "*"
+  service_name   = "*"
+  service_type   = "*"
+  resource_arn   = "*"
+}
+
 
