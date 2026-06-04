@@ -28,22 +28,22 @@ jobs:
       - name: Run Unit Tests
         run: pytest -v
 
-      # - name: Setup Terraform
-      #   uses: hashicorp/setup-terraform@v2
-      #   with:
-      #     terraform_version: "1.5.7"
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_version: "1.5.7"
 
-  #     - name: Terraform Format Check
-  #       run: terraform fmt -check
-  #       working-directory: ./terraform
+      - name: Terraform Format Check
+        run: terraform fmt -check
+        working-directory: ./terraform
 
-  #     - name: Terraform Init
-  #       run: terraform init -backend=false
-  #       working-directory: ./terraform
+      - name: Terraform Init
+        run: terraform init -backend=false
+        working-directory: ./terraform
 
-  #     - name: Terraform Validate
-  #       run: terraform validate
-  #       working-directory: ./terraform
+      - name: Terraform Validate
+        run: terraform validate
+        working-directory: ./terraform
 
   # terraform-plan:
   #   name: Terraform Plan
