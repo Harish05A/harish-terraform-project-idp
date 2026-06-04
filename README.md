@@ -1,15 +1,17 @@
 # Serverless E-Commerce Platform with Terraform
 
 ## Project Overview
-This project is a simple serverless e-commerce application built with AWS and Terraform.
+This project is a high-value, cost-efficient serverless e-commerce application built with AWS and Terraform. It leverages serverless-native design patterns to deliver observability, resilience, and microservice orchestration at negligible cost.
 
 It includes:
-- Terraform infrastructure setup
-- Python Lambda functions for product, cart, order, and monitoring flows
-- DynamoDB tables for products, carts, and orders
-- HTTP API Gateway routes
-- Static frontend hosted on S3
-- Basic frontend availability monitoring with Route 53 health check and SNS alerts
+- **Multi-Service Infrastructure Setup**: Deployed with AWS Lambda, DynamoDB, API Gateway, S3, and CloudFront CDN.
+- **BFF (Backend-For-Frontend) Lambda**: Orchesrates parallel fetching of cart details, order history, and product recommendations using Python's concurrent `ThreadPoolExecutor`.
+- **API Hardening**: Enforces custom request schema validation and case-insensitive `Idempotency-Key` headers on order checkouts to prevent duplicate orders.
+- **Database Optimizations**: Leverages a Global Secondary Index (GSI) query instead of expensive table scans to fetch user orders.
+- **Production-Quality Observability**: Full X-Ray tracing integration (10% sampling rule for cost efficiency), a custom CloudWatch Monitoring Dashboard, and a consolidated Lambda errors metric alarm.
+- **Multi-Stage CI/CD Pipeline**: GitHub Actions workflow containing unit tests, Terraform format checks, validation, automated planning, deployment, and post-deploy smoke tests.
+
+---
 
 ## What I Have Done
 - Configured the AWS provider, variables, and Terraform project structure
@@ -29,137 +31,180 @@ It includes:
 - Defined Terraform outputs for API URL, frontend URL, table names, and Lambda details
 - Added unit test files for the product, cart, and order Lambda functions
 - Added 5 star Review Feature for the products after the order is placed
+- Added a BFF Lambda function that aggregates cart, recent orders, and recommended products in parallel
+- Configured API Gateway integrations, routing, and default rate-limiting/throttling settings
+- Integrated the new BFF Lambda function metrics and consolidated alarms into the CloudWatch dashboard
+- Implemented lightweight, dependency-free schema validation for incoming request payloads
+- Implemented `Idempotency-Key` headers checks, unique constraint checks, and database checks on checkout
+- Optimized user order history queries by targeting the DynamoDB Global Secondary Index instead of scanning the table
+- Created a full-stack integration test suite running against real deployed AWS endpoints
+- Uncommented linting/validation pipeline workflows and added a post-deployment curl smoke test
+
+---
 
 ## Architecture Diagram
 ```mermaid
-flowchart TD
+flowchart TB
+    %% Definitions of Subgraphs for structured categorization
+    subgraph Client_Layer ["Client & CDN Layer"]
+        U["User Browser (https)"]
+        CF["CloudFront Distribution (CDN)"]
+    end
 
-    %% User
-    U[User Browser]
+    subgraph Static_Hosting ["Frontend Hosting"]
+        S3_FE["S3 Bucket (Static Assets)"]
+    end
 
-    %% Frontend
-    FE["S3 Static Website (HTML/CSS/JS)"]
+    subgraph Gateway_Layer ["API & Orchestration Tier"]
+        APIGW["API Gateway (HTTP API) <br/> <b>Default Throttling: 100 rps / 200 burst</b>"]
+        BFF["harish-tf-bff (BFF Lambda) <br/> <i>Parallel Aggregator via ThreadPoolExecutor</i>"]
+    end
 
-    %% API Gateway
-    APIGW[API Gateway HTTP API]
+    subgraph Microservices_Layer ["Serverless Microservices (Python 3.12)"]
+        L_Product["harish-tf-product (Lambda) <br/> <i>Product Catalog & Reviews</i>"]
+        L_Cart["harish-tf-cart (Lambda) <br/> <i>Shopping Carts Operations</i>"]
+        L_Order["harish-tf-order (Lambda) <br/> <i>Order Creation & Rollbacks</i>"]
+        L_Monitor["harish-tf-monitor (Lambda) <br/> <i>Availability Sentinel</i>"]
+    end
 
-    %% Lambda Services
-    P["harish-tf-product (Lambda)"]
-    C["harish-tf-cart (Lambda)"]
-    O["harish-tf-order (Lambda)"]
-    M["harish-tf-monitoring (Lambda)"]
+    subgraph Storage_Layer ["Data Tier (DynamoDB)"]
+        DB_Products["harish-tf-products <br/> <i>(Hash Key: product_id)</i>"]
+        DB_Carts["harish-tf-carts <br/> <i>(Hash Key: user_id)</i>"]
+        DB_Orders["harish-tf-orders <br/> <i>(Hash Key: order_id) <br/> GSI: user_id-index</i>"]
+    end
 
-    %% Database
-    D1[(DynamoDB - Products Table)]
-    D2[(DynamoDB - Carts Table)]
-    D3[(DynamoDB - Orders Table)]
+    subgraph Observability_Layer ["Observability & Alerts"]
+        CW_Dash["CloudWatch Dashboard & Metric Alarms"]
+        XRAY["AWS X-Ray <br/> <i>Active Tracing (10% Sample)</i>"]
+        R53_HC["Route 53 Health Check"]
+        SNS["SNS Alarm Topic"]
+        EMAIL["Email Notifications"]
+    end
 
-    %% Monitoring
-    R53[Route 53 Health Check]
-    SNS[SNS Topic]
-    ALERT[Email / SMS Alerts]
+    %% Client / CDN Traffic Flow
+    U -->|1. Requests Site| CF
+    CF -->|2. Pulls Files| S3_FE
+    U -->|3. API Operations| APIGW
 
-    %% Flow
-    U --> FE
-    FE --> APIGW
-    APIGW --> P
-    APIGW --> C
-    APIGW --> O
+    %% Gateway Routing
+    APIGW -->|GET /v1/bff/dashboard| BFF
+    APIGW -->|/v1/products| L_Product
+    APIGW -->|/v1/cart| L_Cart
+    APIGW -->|/v1/orders| L_Order
 
-    P --> D1
-    C --> D2
-    O --> D3
+    %% BFF Concurrency calls (Parallel reads)
+    BFF -.->|Concurrently Reads Carts| DB_Carts
+    BFF -.->|Concurrently Queries user_id-index GSI| DB_Orders
+    BFF -.->|Concurrently Scans Products Limit 3| DB_Products
 
-    %% Monitoring Flow
-    R53 --> FE
-    R53 --> SNS
-    SNS --> ALERT
-    M --> SNS
+    %% Service to Storage Connections
+    L_Product -->|Reads/Writes Catalog| DB_Products
+    L_Cart -->|Reads/Writes Cart Items| DB_Carts
+    L_Order -->|Conditional Write / Idempotency Check| DB_Orders
+    L_Order -->|Atomic Stock Reservation & Rollback| DB_Products
+    
+    %% Cart Cleanup after Order Creation
+    L_Order -->|Deletes Cart on Success| DB_Carts
+
+    %% Monitoring, Metrics, & Alarms
+    R53_HC -->|Probes CDN Endpoint| CF
+    R53_HC -->|Triggers Alert on Downtime| SNS
+    L_Monitor -->|Synthetically Checks CDN Availability| SNS
+    SNS -->|Dispatches Alerts| EMAIL
+
+    %% Metrics emission
+    L_Product & L_Cart & L_Order & BFF -.->|Emits Logs & Custom Metrics| CW_Dash
+    APIGW & BFF & L_Product & L_Cart & L_Order -.->|Pushes Segments| XRAY
 ```
 
 ### Architecture Summary
-- Frontend is hosted on S3 as a static website
-- API Gateway exposes REST endpoints
-- Lambda functions handle business logic (Product, Cart, Order)
-- DynamoDB stores application data
-- Route 53 monitors frontend health
-- SNS sends alerts when downtime is detected
-- Monitoring Lambda can trigger alerts manually or on schedule
-## Services Implemented
+- **Frontend**: Hosted on S3 and distributed securely with HTTPS via CloudFront.
+- **Aggregation**: BFF Lambda serves as a single entry point for complex dashboard layouts, resolving microservice orchestration in parallel.
+- **Observability**: CloudWatch metrics track latency, execution rates, error limits, and DB capacity. CloudWatch metric alarm triggers email alerts via SNS on high latency, Route 53 health failures, or Lambda faults.
 
-### Backend
+---
+
+## Services & API Endpoints
+
+### Backend Functions
 - `product` Lambda
 - `cart` Lambda
 - `order` Lambda
+- `bff` Lambda
 - `monitoring` Lambda
 
-### Database
-- `harish-tf-products`
-- `harish-tf-carts`
-- `harish-tf-orders`
+### API v1 Routes
+Primary endpoints use URL path versioning under `/v1`:
 
-### API Routes
-Primary endpoints use URL path versioning under `/v1`. Legacy unversioned routes remain available for compatibility.
+- **BFF Orchestration**:
+  - `GET /v1/bff/dashboard?userId={user_id}` (Aggregated cart, orders, and product catalog)
+- **Product Catalog**:
+  - `GET /v1/products` (List all products)
+  - `POST /v1/products` (Create product)
+  - `PUT /v1/products/{id}` (Update product)
+  - `DELETE /v1/products/{id}` (Delete product)
+  - `POST /v1/products/{product_id}/review` (Submit a 1-5 star review)
+- **Shopping Cart**:
+  - `GET /v1/cart/{user_id}` (Get user's cart details)
+  - `POST /v1/cart` (Add item to cart)
+  - `PUT /v1/cart/{user_id}/{product_id}` (Update quantity)
+  - `DELETE /v1/cart/{user_id}/{product_id}` (Remove item)
+  - `DELETE /v1/cart/{user_id}` (Clear cart)
+- **Order Processing**:
+  - `GET /v1/orders/{order_id}` (Get order details)
+  - `GET /v1/orders/user/{user_id}` (Get user orders - optimized GSI query)
+  - `POST /v1/orders` (Idempotent order checkout from cart)
+  - `DELETE /v1/orders/{order_id}` (Cancel order)
 
-- `GET /v1/products`
-- `POST /v1/products`
-- `PUT /v1/products/{id}`
-- `DELETE /v1/products/{id}`
-- `POST /v1/products/{product_id}/review`
-- `GET /v1/cart/{user_id}`
-- `POST /v1/cart`
-- `PUT /v1/cart/{user_id}/{product_id}`
-- `DELETE /v1/cart/{user_id}/{product_id}`
-- `DELETE /v1/cart/{user_id}`
-- `GET /v1/orders/{order_id}`
-- `GET /v1/orders/user/{user_id}`
-- `POST /v1/orders`
-- `DELETE /v1/orders/{order_id}`
-
-## Frontend
-The frontend is a static HTML application hosted on S3.
-
-It includes:
-- Product listing
-- Add product form
-- Cart view
-- Checkout form
-- Order history view
+---
 
 ## Project Structure
 ```text
 harish-terraform-project/
-|-- terraform/   # Infrastructure code
-|-- backend/     # Lambda functions and tests
-|-- frontend/    # Static frontend
-|-- QUICK_START.md
-|-- SYSTEM_GUIDE.md
-`-- DEPLOYMENT_SUMMARY.md
+├── terraform/          # Infrastructure-as-code configurations
+├── backend/            # Lambda backend services
+│   ├── shared/         # Shared utilities (DynamoDB connection, validation, logging)
+│   ├── product/        # Product catalog handler & tests
+│   ├── cart/           # Cart handler & tests
+│   ├── order/          # Order handler, rollback logic & tests
+│   └── bff/            # BFF dashboard lambda handler & tests
+├── frontend/           # Vite + React web application
+├── test_integration.py # Full-stack live endpoint integration test
+├── QUICK_START.md      # Setup, commands, and local scripts guide
+├── SYSTEM_GUIDE.md     # Code design, database schemas, and workflows guide
+└── DEPLOYMENT_SUMMARY.md
 ```
 
-## How to Run
+---
+
+## How to Run & Verify
+
+### Deploy Infrastructure
 ```bash
 cd terraform
 terraform init
+terraform validate
 terraform plan
-terraform apply
+terraform apply -auto-approve
 ```
 
-After deployment, rebuild and redeploy the frontend so Vite includes the `/v1` API paths:
-
+### Run Unit Tests
+To run the 38 backend unit tests locally:
 ```bash
-cd frontend
-npm install
-npm run build
+python -m pytest
 ```
 
-## Links
-- ApiGateway URL - "https://490z9zcjr8.execute-api.ap-southeast-1.amazonaws.com/v1/"
-- Frontend URL - "http://harish-tf-frontend-726101441380.s3-website-ap-southeast-1.amazonaws.com"
+### Run Integration Tests
+To verify live endpoints on the AWS deployment:
+```bash
+python -m pytest test_integration.py -v
+```
+
+---
 
 ## Notes
-- AWS region is set to `ap-southeast-1`
-- Python runtime is `python3.14`
-- Resource naming uses the `harish-tf` prefix
-- Unit test files are present in the backend folders
-- I could not run `pytest` in this environment because `pytest` is not installed
+- **AWS Region**: `ap-southeast-1` (Singapore)
+- **Python Runtime**: `python3.12`
+- **Resource Prefixes**: `harish-tf`
+- **Throttling limit**: Default rate limits are restricted to 100 req/s with a 200 burst limit via API Gateway Stage settings.
+- **X-Ray sampling**: Traced actively with a fixed rate of 10% to prevent excessive AWS billing charges.
