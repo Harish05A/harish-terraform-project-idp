@@ -50,6 +50,7 @@ _SERVICE_MODULES = {
     "cart":    _load_service_module("cart"),
     "order":   _load_service_module("order"),
     "product": _load_service_module("product"),
+    "bff":     _load_service_module("bff"),
 }
 
 # Map each test file name to its service module.
@@ -57,6 +58,7 @@ _TEST_FILE_TO_SERVICE = {
     "test_cart_lambda.py":    "cart",
     "test_order_lambda.py":   "order",
     "test_product_lambda.py": "product",
+    "test_bff_lambda.py":     "bff",
 }
 
 

@@ -128,6 +128,46 @@ resource "aws_lambda_function" "order" {
   ]
 }
 
+# Automatically zip BFF Lambda code
+data "archive_file" "bff_lambda_zip" {
+  type        = "zip"
+  source_dir  = "${path.module}/../backend"
+  output_path = "${path.module}/../backend/bff.zip"
+  excludes    = ["cart/*", "order/*", "product/*", "monitoring/*", "*.zip", "**/.pytest_cache/*", "**/__pycache__/*"]
+}
+
+# BFF Lambda Function
+resource "aws_lambda_function" "bff" {
+  filename      = data.archive_file.bff_lambda_zip.output_path
+  function_name = "${var.project_name}-bff"
+  role          = aws_iam_role.bff_lambda_role.arn
+  handler       = "bff.lambda_function.lambda_handler"
+  runtime       = var.python_runtime
+
+  source_code_hash = data.archive_file.bff_lambda_zip.output_base64sha256
+
+  environment {
+    variables = {
+      REGION_NAME    = var.aws_region
+      CARTS_TABLE    = "${var.project_name}-carts"
+      ORDERS_TABLE   = "${var.project_name}-orders"
+      PRODUCTS_TABLE = "${var.project_name}-products"
+    }
+  }
+
+  timeout = 30
+
+  tracing_config {
+    mode = "Active"
+  }
+
+  depends_on = [
+    aws_iam_role_policy_attachment.bff_lambda_basic_execution,
+    aws_iam_role_policy.bff_lambda_dynamodb,
+    aws_iam_role_policy_attachment.bff_lambda_xray
+  ]
+}
+
 data "archive_file" "monitoring_lambda_zip" {
   type        = "zip"
   source_dir  = "${path.module}/../backend"
@@ -196,5 +236,10 @@ import {
 
 resource "aws_cloudwatch_log_group" "monitor_lambda_logs" {
   name              = "/aws/lambda/${var.project_name}-monitor"
+  retention_in_days = 7
+}
+
+resource "aws_cloudwatch_log_group" "bff_lambda_logs" {
+  name              = "/aws/lambda/${var.project_name}-bff"
   retention_in_days = 7
 }

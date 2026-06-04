@@ -303,6 +303,21 @@ resource "aws_apigatewayv2_route" "order_put_status" {
   target    = "integrations/${aws_apigatewayv2_integration.order_lambda.id}"
 }
 
+# BFF Route & Integration
+resource "aws_apigatewayv2_integration" "bff_lambda" {
+  api_id                 = aws_apigatewayv2_api.product_api.id
+  integration_type       = "AWS_PROXY"
+  integration_method     = "POST"
+  payload_format_version = "2.0"
+  integration_uri        = aws_lambda_function.bff.arn
+}
+
+resource "aws_apigatewayv2_route" "bff_route" {
+  api_id    = aws_apigatewayv2_api.product_api.id
+  route_key = "GET /v1/bff/dashboard"
+  target    = "integrations/${aws_apigatewayv2_integration.bff_lambda.id}"
+}
+
 # =====================
 # Lambda Permissions
 # =====================
@@ -331,6 +346,14 @@ resource "aws_lambda_permission" "order_api" {
   source_arn    = "${aws_apigatewayv2_api.product_api.execution_arn}/*/*"
 }
 
+resource "aws_lambda_permission" "bff_api" {
+  statement_id  = "AllowAPIGatewayInvoke"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.bff.function_name
+  principal     = "apigateway.amazonaws.com"
+  source_arn    = "${aws_apigatewayv2_api.product_api.execution_arn}/*/*"
+}
+
 # =====================
 # Deployment Stage
 # =====================
@@ -339,6 +362,11 @@ resource "aws_apigatewayv2_stage" "default" {
   api_id      = aws_apigatewayv2_api.product_api.id
   name        = "$default"
   auto_deploy = true
+
+  default_route_settings {
+    throttling_burst_limit = 200
+    throttling_rate_limit  = 100
+  }
 
   access_log_settings {
     destination_arn = aws_cloudwatch_log_group.api_gateway_logs.arn

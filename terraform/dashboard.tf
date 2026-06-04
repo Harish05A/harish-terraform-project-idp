@@ -59,7 +59,7 @@ resource "aws_cloudwatch_metric_alarm" "api_5xx_errors" {
   }
 }
 
-# 4. Consolidated Lambda Errors Alarm (Sum across all 4 Lambdas > 5/min)
+# 4. Consolidated Lambda Errors Alarm (Sum across all 5 Lambdas > 5/min)
 resource "aws_cloudwatch_metric_alarm" "lambda_errors" {
   alarm_name          = "${var.project_name}-lambda-errors"
   comparison_operator = "GreaterThanThreshold"
@@ -71,7 +71,7 @@ resource "aws_cloudwatch_metric_alarm" "lambda_errors" {
 
   metric_query {
     id          = "total_errors"
-    expression  = "m1 + m2 + m3 + m4"
+    expression  = "m1 + m2 + m3 + m4 + m5"
     label       = "Total Lambda Errors"
     return_data = true
   }
@@ -124,6 +124,19 @@ resource "aws_cloudwatch_metric_alarm" "lambda_errors" {
       stat        = "Sum"
       dimensions = {
         FunctionName = aws_lambda_function.monitor_lambda.function_name
+      }
+    }
+  }
+
+  metric_query {
+    id = "m5"
+    metric {
+      metric_name = "Errors"
+      namespace   = "AWS/Lambda"
+      period      = 60
+      stat        = "Sum"
+      dimensions = {
+        FunctionName = aws_lambda_function.bff.function_name
       }
     }
   }
@@ -417,7 +430,9 @@ resource "aws_cloudwatch_dashboard" "main" {
             ["AWS/Lambda", "Invocations", "FunctionName", aws_lambda_function.order.function_name, { "stat" : "Sum", "label" : "Order Invocations" }],
             ["AWS/Lambda", "Errors", "FunctionName", aws_lambda_function.order.function_name, { "stat" : "Sum", "label" : "Order Errors", "color" : "#ff9999" }],
             ["AWS/Lambda", "Invocations", "FunctionName", aws_lambda_function.monitor_lambda.function_name, { "stat" : "Sum", "label" : "Monitor Invocations" }],
-            ["AWS/Lambda", "Errors", "FunctionName", aws_lambda_function.monitor_lambda.function_name, { "stat" : "Sum", "label" : "Monitor Errors", "color" : "#ffcccc" }]
+            ["AWS/Lambda", "Errors", "FunctionName", aws_lambda_function.monitor_lambda.function_name, { "stat" : "Sum", "label" : "Monitor Errors", "color" : "#ffcccc" }],
+            ["AWS/Lambda", "Invocations", "FunctionName", aws_lambda_function.bff.function_name, { "stat" : "Sum", "label" : "BFF Invocations" }],
+            ["AWS/Lambda", "Errors", "FunctionName", aws_lambda_function.bff.function_name, { "stat" : "Sum", "label" : "BFF Errors", "color" : "#ff99ff" }]
           ]
           view    = "timeSeries"
           region  = var.aws_region
@@ -441,7 +456,9 @@ resource "aws_cloudwatch_dashboard" "main" {
             ["AWS/Lambda", "Duration", "FunctionName", aws_lambda_function.order.function_name, { "stat" : "Average", "label" : "Order Avg Duration" }],
             ["AWS/Lambda", "Duration", "FunctionName", aws_lambda_function.order.function_name, { "stat" : "Maximum", "label" : "Order Max Duration" }],
             ["AWS/Lambda", "Duration", "FunctionName", aws_lambda_function.monitor_lambda.function_name, { "stat" : "Average", "label" : "Monitor Avg Duration" }],
-            ["AWS/Lambda", "Duration", "FunctionName", aws_lambda_function.monitor_lambda.function_name, { "stat" : "Maximum", "label" : "Monitor Max Duration" }]
+            ["AWS/Lambda", "Duration", "FunctionName", aws_lambda_function.monitor_lambda.function_name, { "stat" : "Maximum", "label" : "Monitor Max Duration" }],
+            ["AWS/Lambda", "Duration", "FunctionName", aws_lambda_function.bff.function_name, { "stat" : "Average", "label" : "BFF Avg Duration" }],
+            ["AWS/Lambda", "Duration", "FunctionName", aws_lambda_function.bff.function_name, { "stat" : "Maximum", "label" : "BFF Max Duration" }]
           ]
           view   = "timeSeries"
           region = var.aws_region

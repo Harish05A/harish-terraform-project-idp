@@ -94,6 +94,16 @@ output "order_lambda_arn" {
   value       = aws_lambda_function.order.arn
 }
 
+output "bff_lambda_function_name" {
+  description = "BFF Lambda function name"
+  value       = aws_lambda_function.bff.function_name
+}
+
+output "bff_lambda_arn" {
+  description = "BFF Lambda function ARN"
+  value       = aws_lambda_function.bff.arn
+}
+
 # =====================
 # API Routes Summary
 # =====================
@@ -120,6 +130,9 @@ output "api_routes" {
       "GET /v1/orders/user/{user_id}" = "Get user's orders"
       "POST /v1/orders"               = "Create order from cart"
       "DELETE /v1/orders/{order_id}"  = "Cancel order"
+    }
+    bff = {
+      "GET /v1/bff/dashboard" = "Retrieve aggregated dashboard details (cart, recent orders, recommendations)"
     }
   }
 }

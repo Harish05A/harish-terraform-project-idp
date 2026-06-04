@@ -284,12 +284,13 @@ def test_get_order_not_found(monkeypatch):
 
 
 # ------------------------
+# ------------------------
 # TEST GET USER ORDERS
 # ------------------------
 def test_get_user_orders(monkeypatch):
     fake_orders = MagicMock()
 
-    fake_orders.scan.return_value = {
+    fake_orders.query.return_value = {
         "Items": [
             {"order_id": "1", "created_at": "2024-01-01"},
             {"order_id": "2", "created_at": "2024-01-02"}
@@ -308,6 +309,133 @@ def test_get_user_orders(monkeypatch):
 
     assert response['statusCode'] == 200
     assert body['count'] == 2
+    fake_orders.query.assert_called_once()
+
+
+def test_create_order_with_idempotency_key_success(monkeypatch):
+    fake_orders = MagicMock()
+    fake_carts = MagicMock()
+    fake_products = MagicMock()
+
+    fake_carts.get_item.return_value = {
+        "Item": {
+            "user_id": "user-123",
+            "items": {
+                "p1": {
+                    "product_id": "p1",
+                    "product_name": "Phone",
+                    "unit_price": 1000,
+                    "quantity": 1,
+                    "total_price": 1000
+                }
+            },
+            "total_items": 1,
+            "total_price": 1000
+        }
+    }
+
+    fake_orders.get_item.return_value = {}
+
+    monkeypatch.setattr(lf, "get_orders_table", lambda: fake_orders)
+    monkeypatch.setattr(lf, "get_carts_table", lambda: fake_carts)
+    monkeypatch.setattr(lf, "get_products_table", lambda: fake_products)
+
+    event = {
+        "requestContext": {"http": {"method": "POST"}},
+        "headers": {"Idempotency-Key": "key-xyz-123"},
+        "body": json.dumps({
+            "user_id": "user-123",
+            "shipping_address": "Chennai",
+            "email": "test@mail.com"
+        })
+    }
+
+    response = lf.lambda_handler(event, None)
+    body = json.loads(response['body'])
+
+    assert response['statusCode'] == 201
+    assert body['data']['order_id'] == "key-xyz-123"
+    fake_orders.put_item.assert_called_once()
+
+
+def test_create_order_with_idempotency_key_duplicate(monkeypatch):
+    fake_orders = MagicMock()
+    fake_carts = MagicMock()
+    fake_products = MagicMock()
+
+    fake_orders.get_item.return_value = {
+        "Item": {
+            "order_id": "key-xyz-123",
+            "user_id": "user-123",
+            "items": {},
+            "total_items": 1,
+            "total_price": 1000,
+            "status": "CONFIRMED",
+            "shipping_address": "Chennai",
+            "email": "test@mail.com"
+        }
+    }
+
+    monkeypatch.setattr(lf, "get_orders_table", lambda: fake_orders)
+    monkeypatch.setattr(lf, "get_carts_table", lambda: fake_carts)
+    monkeypatch.setattr(lf, "get_products_table", lambda: fake_products)
+
+    event = {
+        "requestContext": {"http": {"method": "POST"}},
+        "headers": {"Idempotency-Key": "key-xyz-123"},
+        "body": json.dumps({
+            "user_id": "user-123",
+            "shipping_address": "Chennai",
+            "email": "test@mail.com"
+        })
+    }
+
+    response = lf.lambda_handler(event, None)
+    body = json.loads(response['body'])
+
+    assert response['statusCode'] == 200
+    assert body['data']['order_id'] == "key-xyz-123"
+    fake_orders.get_item.assert_called_with(Key={"order_id": "key-xyz-123"})
+    fake_orders.put_item.assert_not_called()
+
+
+def test_create_order_with_idempotency_key_collision(monkeypatch):
+    fake_orders = MagicMock()
+    fake_carts = MagicMock()
+    fake_products = MagicMock()
+
+    fake_orders.get_item.return_value = {
+        "Item": {
+            "order_id": "key-xyz-123",
+            "user_id": "user-456",
+            "items": {},
+            "total_items": 1,
+            "total_price": 1000,
+            "status": "CONFIRMED",
+            "shipping_address": "Elsewhere",
+            "email": "diff@mail.com"
+        }
+    }
+
+    monkeypatch.setattr(lf, "get_orders_table", lambda: fake_orders)
+    monkeypatch.setattr(lf, "get_carts_table", lambda: fake_carts)
+    monkeypatch.setattr(lf, "get_products_table", lambda: fake_products)
+
+    event = {
+        "requestContext": {"http": {"method": "POST"}},
+        "headers": {"Idempotency-Key": "key-xyz-123"},
+        "body": json.dumps({
+            "user_id": "user-123",
+            "shipping_address": "Chennai",
+            "email": "test@mail.com"
+        })
+    }
+
+    response = lf.lambda_handler(event, None)
+    body = json.loads(response['body'])
+
+    assert response['statusCode'] == 400
+    assert "Idempotency key collision" in body['error']
 
 
 # ------------------------

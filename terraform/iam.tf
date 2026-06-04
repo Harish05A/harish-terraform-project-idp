@@ -204,3 +204,47 @@ resource "aws_iam_role_policy" "monitor_sns_policy" {
   role   = aws_iam_role.product_lambda_role.id
   policy = data.aws_iam_policy_document.monitor_sns_policy.json
 }
+
+# =====================
+# BFF Lambda IAM Role
+# =====================
+
+resource "aws_iam_role" "bff_lambda_role" {
+  name               = "${var.project_name}-bff-lambda-role"
+  assume_role_policy = data.aws_iam_policy_document.lambda_assume_role.json
+}
+
+resource "aws_iam_role_policy_attachment" "bff_lambda_basic_execution" {
+  role       = aws_iam_role.bff_lambda_role.name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+}
+
+resource "aws_iam_role_policy_attachment" "bff_lambda_xray" {
+  role       = aws_iam_role.bff_lambda_role.name
+  policy_arn = "arn:aws:iam::aws:policy/AWSXRayDaemonWriteAccess"
+}
+
+data "aws_iam_policy_document" "bff_lambda_dynamodb" {
+  statement {
+    effect = "Allow"
+
+    actions = [
+      "dynamodb:GetItem",
+      "dynamodb:Scan",
+      "dynamodb:Query"
+    ]
+
+    resources = [
+      "arn:aws:dynamodb:${var.aws_region}:*:table/${var.project_name}-carts",
+      "arn:aws:dynamodb:${var.aws_region}:*:table/${var.project_name}-orders",
+      "arn:aws:dynamodb:${var.aws_region}:*:table/${var.project_name}-orders/index/*",
+      "arn:aws:dynamodb:${var.aws_region}:*:table/${var.project_name}-products"
+    ]
+  }
+}
+
+resource "aws_iam_role_policy" "bff_lambda_dynamodb" {
+  name   = "${var.project_name}-bff-lambda-dynamodb-policy"
+  role   = aws_iam_role.bff_lambda_role.id
+  policy = data.aws_iam_policy_document.bff_lambda_dynamodb.json
+}

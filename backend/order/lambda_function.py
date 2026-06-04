@@ -16,9 +16,25 @@ from shared.dynamodb import get_products_table as shared_get_products_table
 from shared.dynamodb import get_region
 from shared.logger import get_logger, log_event
 from shared.response import error_response, success_response
-from shared.validators import ValidationError, validate_required_fields
+from shared.validators import ValidationError, validate_required_fields, validate_schema
 
 logger = get_logger(__name__)
+
+class ConditionalCheckFailedException_Idempotent(Exception):
+    def __init__(self, existing_order):
+        self.existing_order = existing_order
+
+ORDER_SCHEMA = {
+    "type": "object",
+    "required": ["user_id", "shipping_address", "email"],
+    "properties": {
+        "user_id": {"type": "string"},
+        "shipping_address": {"type": "string"},
+        "email": {"type": "string"},
+        "notes": {"type": "string"},
+        "payment_method": {"type": "string"}
+    }
+}
 
 def get_products_table():
     return shared_get_products_table()
@@ -141,7 +157,9 @@ def lambda_handler(event, context):
         # POST /orders - Create new order
         if http_method == 'POST' and len(route_parts) == 0:
             body = json.loads(event.get('body', '{}'))
-            return create_order(body, correlation_id)
+            headers = event.get('headers') or {}
+            idempotency_key = headers.get('idempotency-key') or headers.get('Idempotency-Key')
+            return create_order(body, correlation_id, idempotency_key)
 
         # GET /orders - Get all orders (admin)
         elif http_method == 'GET' and len(route_parts) == 0:
@@ -183,13 +201,31 @@ def lambda_handler(event, context):
 
         return error_response(500, f"Internal server error: {str(e)}", correlation_id)
 
-def create_order(body, correlation_id=None):
-    """Create order from cart"""
-    required_fields = ['user_id', 'shipping_address', 'email']
-
+def create_order(body, correlation_id=None, idempotency_key=None):
+    """Create order from cart with idempotency check"""
     try:
-        validate_required_fields(body, required_fields)
+        validate_schema(body, ORDER_SCHEMA)
         user_id = str(body['user_id'])
+
+        orders_table = get_orders_table()
+
+        # Check if the order with the idempotency key already exists to avoid redundant DB / stock queries
+        if idempotency_key:
+            try:
+                existing_res = orders_table.get_item(Key={'order_id': idempotency_key})
+                if 'Item' in existing_res:
+                    existing_order = existing_res['Item']
+                    # Verify user_id match to prevent cross-user key collision hijacks
+                    if existing_order.get('user_id') != user_id:
+                        return error_response(400, "Idempotency key collision", correlation_id)
+                    logger.info(f"Idempotency hit! Returning existing order {idempotency_key}")
+                    return success_response(200, {
+                        'message': 'Order retrieved successfully (idempotent)',
+                        'data': existing_order,
+                        'next_steps': 'Your order has been confirmed. Check your email for updates.'
+                    }, correlation_id)
+            except ClientError as get_err:
+                logger.exception(f"Error checking existing idempotency key {idempotency_key}")
 
         # Get user's cart
         carts_table = get_carts_table()
@@ -200,7 +236,7 @@ def create_order(body, correlation_id=None):
         cart = cart_response['Item']
 
         # Create order
-        order_id = str(uuid.uuid4())
+        order_id = idempotency_key if idempotency_key else str(uuid.uuid4())
         # Convert float values from JSON back to Decimal for DynamoDB
         items = normalize_cart_items(cart['items'])
         
@@ -243,13 +279,48 @@ def create_order(body, correlation_id=None):
                         logger.exception(f"DynamoDB error reserving stock for product {product_id}")
                         raise e
 
-            # Save order
+            # Save order with a unique constraint check on order_id
             try:
-                orders_table = get_orders_table()
-                orders_table.put_item(Item=order)
-            except Exception as e:
-                logger.exception("Failed to save order")
-                raise e
+                orders_table.put_item(
+                    Item=order,
+                    ConditionExpression="attribute_not_exists(order_id)"
+                )
+            except ClientError as db_error:
+                if db_error.response['Error']['Code'] == 'ConditionalCheckFailedException':
+                    # This means the order with this order_id (idempotency key) was already written in a race condition
+                    logger.warning(f"Order {order_id} already exists (idempotency condition check failed)")
+                    # Retrieve the existing order details
+                    existing_res = orders_table.get_item(Key={'order_id': order_id})
+                    if 'Item' in existing_res:
+                        existing_order = existing_res['Item']
+                        if existing_order.get('user_id') != user_id:
+                            raise ValidationError("Idempotency key collision")
+                        # Since the order already existed, we must rollback the reserved stock for this redundant request
+                        raise ConditionalCheckFailedException_Idempotent(existing_order)
+                    else:
+                        raise db_error
+                else:
+                    logger.exception("Failed to save order")
+                    raise db_error
+
+        except ConditionalCheckFailedException_Idempotent as idempotent_hit:
+            # Rollback stock because this request was a duplicate and the order already exists
+            logger.info("Rolling back stock reservation for duplicate idempotent request")
+            for r_pid, r_qty in reserved_items:
+                try:
+                    products_table.update_item(
+                        Key={'product_id': r_pid},
+                        UpdateExpression="SET stock = stock + :qty",
+                        ExpressionAttributeValues={':qty': r_qty}
+                    )
+                except Exception as rollback_err:
+                    logger.exception(f"Failed to rollback stock for product {r_pid} (qty {r_qty}) during idempotent rollback")
+            
+            return success_response(200, {
+                'message': 'Order retrieved successfully (idempotent)',
+                'data': idempotent_hit.existing_order,
+                'next_steps': 'Your order has been confirmed. Check your email for updates.'
+            }, correlation_id)
 
         except Exception as checkout_error:
             # Rollback stock for successfully reserved items
@@ -340,11 +411,12 @@ def get_order(order_id, correlation_id=None):
 
 
 def get_user_orders(user_id, correlation_id=None):
-    """Get all orders for a user"""
+    """Get all orders for a user using the GSI query for high performance and low cost"""
     try:
         orders_table = get_orders_table()
-        response = orders_table.scan(
-            FilterExpression='user_id = :user_id',
+        response = orders_table.query(
+            IndexName='user_id-index',
+            KeyConditionExpression='user_id = :user_id',
             ExpressionAttributeValues={':user_id': user_id}
         )
 
