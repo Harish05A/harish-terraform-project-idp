@@ -117,6 +117,17 @@ resource "aws_iam_role_policy_attachment" "order_lambda_xray" {
   policy_arn = "arn:aws:iam::aws:policy/AWSXRayDaemonWriteAccess"
 }
 
+resource "aws_iam_role_policy_attachment" "product_lambda_xray" {
+  role       = aws_iam_role.product_lambda_role.name
+  policy_arn = "arn:aws:iam::aws:policy/AWSXRayDaemonWriteAccess"
+}
+
+resource "aws_iam_role_policy_attachment" "cart_lambda_xray" {
+  role       = aws_iam_role.cart_lambda_role.name
+  policy_arn = "arn:aws:iam::aws:policy/AWSXRayDaemonWriteAccess"
+}
+
+
 # Policy for DynamoDB access (Orders and Carts tables)
 data "aws_iam_policy_document" "order_lambda_dynamodb" {
   statement {
@@ -134,6 +145,7 @@ data "aws_iam_policy_document" "order_lambda_dynamodb" {
     resources = [
       "arn:aws:dynamodb:${var.aws_region}:*:table/${var.project_name}-orders",
       "arn:aws:dynamodb:${var.aws_region}:*:table/${var.project_name}-carts",
+      "arn:aws:dynamodb:${var.aws_region}:*:table/${var.project_name}-products",
       "arn:aws:dynamodb:${var.aws_region}:*:table/${var.project_name}-orders/index/*"
     ]
   }
@@ -157,6 +169,20 @@ resource "aws_iam_role_policy" "order_lambda_sns" {
   name   = "${var.project_name}-order-lambda-sns-policy"
   role   = aws_iam_role.order_lambda_role.id
   policy = data.aws_iam_policy_document.order_lambda_sns.json
+}
+
+data "aws_iam_policy_document" "order_lambda_cloudwatch" {
+  statement {
+    effect    = "Allow"
+    actions   = ["cloudwatch:PutMetricData"]
+    resources = ["*"]
+  }
+}
+
+resource "aws_iam_role_policy" "order_lambda_cloudwatch" {
+  name   = "${var.project_name}-order-lambda-cloudwatch-policy"
+  role   = aws_iam_role.order_lambda_role.id
+  policy = data.aws_iam_policy_document.order_lambda_cloudwatch.json
 }
 
 data "aws_iam_policy_document" "monitor_sns_policy" {

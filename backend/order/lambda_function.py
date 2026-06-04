@@ -7,16 +7,38 @@ import uuid
 from datetime import datetime, timedelta
 from decimal import Decimal
 
+from botocore.exceptions import ClientError
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from shared.dynamodb import get_carts_table as shared_get_carts_table
 from shared.dynamodb import get_orders_table as shared_get_orders_table
+from shared.dynamodb import get_products_table as shared_get_products_table
 from shared.dynamodb import get_region
 from shared.logger import get_logger, log_event
 from shared.response import error_response, success_response
 from shared.validators import ValidationError, validate_required_fields
 
 logger = get_logger(__name__)
+
+def get_products_table():
+    return shared_get_products_table()
+
+def publish_metric(metric_name, value, unit='Count'):
+    """Publish custom metric to CloudWatch."""
+    try:
+        cw = boto3.client('cloudwatch', region_name=get_region())
+        cw.put_metric_data(
+            Namespace='ECommerceSystem',
+            MetricData=[
+                {
+                    'MetricName': metric_name,
+                    'Value': float(value),
+                    'Unit': unit
+                }
+            ]
+        )
+    except Exception as e:
+        logger.exception(f"Failed to publish custom metric {metric_name}")
 
 def get_sns_topic_arn():
     return os.environ.get('TOPIC_ARN', '')
@@ -198,13 +220,50 @@ def create_order(body, correlation_id=None):
             'estimated_delivery': calculate_delivery_date()
         }
 
+        # Reserve stock for all items using DynamoDB atomic updates and condition expressions
+        reserved_items = []
+        products_table = get_products_table()
+        
         try:
+            for product_id, item in items.items():
+                qty = int(item['quantity'])
+                try:
+                    products_table.update_item(
+                        Key={'product_id': product_id},
+                        UpdateExpression="SET stock = stock - :qty",
+                        ConditionExpression="attribute_exists(product_id) AND stock >= :qty",
+                        ExpressionAttributeValues={':qty': qty}
+                    )
+                    reserved_items.append((product_id, qty))
+                except ClientError as e:
+                    if e.response['Error']['Code'] == 'ConditionalCheckFailedException':
+                        logger.warning(f"Stock reservation failed: Product {product_id} has insufficient stock or does not exist")
+                        raise ValidationError(f"Insufficient stock or product not found for: {product_id}")
+                    else:
+                        logger.exception(f"DynamoDB error reserving stock for product {product_id}")
+                        raise e
+
             # Save order
-            orders_table = get_orders_table()
-            orders_table.put_item(Item=order)
-        except Exception as e:
-            logger.exception("Failed to save order")
-            raise e
+            try:
+                orders_table = get_orders_table()
+                orders_table.put_item(Item=order)
+            except Exception as e:
+                logger.exception("Failed to save order")
+                raise e
+
+        except Exception as checkout_error:
+            # Rollback stock for successfully reserved items
+            logger.info("Initiating stock rollback due to checkout failure")
+            for r_pid, r_qty in reserved_items:
+                try:
+                    products_table.update_item(
+                        Key={'product_id': r_pid},
+                        UpdateExpression="SET stock = stock + :qty",
+                        ExpressionAttributeValues={':qty': r_qty}
+                    )
+                except Exception as rollback_err:
+                    logger.exception(f"Failed to rollback stock for product {r_pid} (qty {r_qty}) during checkout failure")
+            raise checkout_error
 
         # Clear user's cart
         carts_table = get_carts_table()
@@ -240,6 +299,10 @@ def create_order(body, correlation_id=None):
                 """
         )
 
+        # Publish success metrics
+        publish_metric("SuccessfulOrders", 1, "Count")
+        publish_metric("RevenueGenerated", order['total_price'], "None")
+
         return success_response(201, {
             'message': 'Order created successfully',
             'data': order,
@@ -247,8 +310,10 @@ def create_order(body, correlation_id=None):
         }, correlation_id)
 
     except ValidationError as e:
+        publish_metric("FailedOrders", 1, "Count")
         return error_response(400, str(e), correlation_id)
     except Exception as e:
+        publish_metric("FailedOrders", 1, "Count")
         logger.exception("Failed to create order")
         return error_response(500, f"Failed to create order: {str(e)}", correlation_id)
 

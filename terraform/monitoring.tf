@@ -37,7 +37,7 @@ resource "aws_xray_sampling_rule" "low_cost" {
   priority       = 1000
   version        = 1
   reservoir_size = 1
-  fixed_rate     = 0.05
+  fixed_rate     = 0.10
 
   host           = "*"
   http_method    = "*"

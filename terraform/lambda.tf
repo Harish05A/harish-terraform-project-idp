@@ -30,9 +30,14 @@ resource "aws_lambda_function" "product" {
 
   timeout = 30
 
+  tracing_config {
+    mode = "Active"
+  }
+
   depends_on = [
     aws_iam_role_policy_attachment.product_lambda_basic_execution,
-    aws_iam_role_policy.product_lambda_dynamodb
+    aws_iam_role_policy.product_lambda_dynamodb,
+    aws_iam_role_policy_attachment.product_lambda_xray
   ]
 }
 
@@ -68,9 +73,14 @@ resource "aws_lambda_function" "cart" {
 
   timeout = 30
 
+  tracing_config {
+    mode = "Active"
+  }
+
   depends_on = [
     aws_iam_role_policy_attachment.cart_lambda_basic_execution,
-    aws_iam_role_policy.cart_lambda_dynamodb
+    aws_iam_role_policy.cart_lambda_dynamodb,
+    aws_iam_role_policy_attachment.cart_lambda_xray
   ]
 }
 
@@ -101,6 +111,7 @@ resource "aws_lambda_function" "order" {
       REGION_NAME  = var.aws_region
       ORDERS_TABLE = "${var.project_name}-orders"
       CARTS_TABLE  = "${var.project_name}-carts"
+      PRODUCTS_TABLE = "${var.project_name}-products"
       TOPIC_ARN    = aws_sns_topic.frontend_alerts.arn
     }
   }

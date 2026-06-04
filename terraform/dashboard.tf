@@ -298,11 +298,56 @@ resource "aws_cloudwatch_dashboard" "main" {
         }
       },
 
-      # SECTION 2: API GATEWAY & CLOUDFRONT PERFORMANCE
+      # SECTION 2: BUSINESS KPIS
       {
         type   = "text"
         x      = 0
         y      = 6
+        width  = 24
+        height = 2
+        properties = {
+          markdown = "## Business KPIs"
+        }
+      },
+      {
+        type   = "metric"
+        x      = 0
+        y      = 8
+        width  = 12
+        height = 6
+        properties = {
+          metrics = [
+            [ "ECommerceSystem", "SuccessfulOrders", { "stat": "Sum", "label": "Successful Orders", "color": "#2ca02c" } ],
+            [ "ECommerceSystem", "FailedOrders", { "stat": "Sum", "label": "Failed Orders", "color": "#d62728" } ]
+          ]
+          view    = "timeSeries"
+          region  = var.aws_region
+          title   = "Order Status Trends"
+          period  = 60
+        }
+      },
+      {
+        type   = "metric"
+        x      = 12
+        y      = 8
+        width  = 12
+        height = 6
+        properties = {
+          metrics = [
+            [ "ECommerceSystem", "RevenueGenerated", { "stat": "Sum", "label": "Total Revenue ($)", "color": "#1f77b4" } ]
+          ]
+          view    = "timeSeries"
+          region  = var.aws_region
+          title   = "Revenue Generated"
+          period  = 60
+        }
+      },
+
+      # SECTION 3: API GATEWAY & CLOUDFRONT PERFORMANCE
+      {
+        type   = "text"
+        x      = 0
+        y      = 14
         width  = 24
         height = 2
         properties = {
@@ -312,7 +357,7 @@ resource "aws_cloudwatch_dashboard" "main" {
       {
         type   = "metric"
         x      = 0
-        y      = 8
+        y      = 16
         width  = 12
         height = 6
         properties = {
@@ -331,7 +376,7 @@ resource "aws_cloudwatch_dashboard" "main" {
       {
         type   = "metric"
         x      = 12
-        y      = 8
+        y      = 16
         width  = 12
         height = 6
         properties = {
@@ -346,11 +391,11 @@ resource "aws_cloudwatch_dashboard" "main" {
         }
       },
 
-      # SECTION 3: LAMBDA FUNCTIONS MONITORING
+      # SECTION 4: LAMBDA FUNCTIONS MONITORING
       {
         type   = "text"
         x      = 0
-        y      = 14
+        y      = 22
         width  = 24
         height = 2
         properties = {
@@ -360,7 +405,7 @@ resource "aws_cloudwatch_dashboard" "main" {
       {
         type   = "metric"
         x      = 0
-        y      = 16
+        y      = 24
         width  = 12
         height = 6
         properties = {
@@ -384,7 +429,7 @@ resource "aws_cloudwatch_dashboard" "main" {
       {
         type   = "metric"
         x      = 12
-        y      = 16
+        y      = 24
         width  = 12
         height = 6
         properties = {
@@ -405,11 +450,11 @@ resource "aws_cloudwatch_dashboard" "main" {
         }
       },
 
-      # SECTION 4: DYNAMODB TABLE PERFORMANCE
+      # SECTION 5: DYNAMODB TABLE PERFORMANCE
       {
         type   = "text"
         x      = 0
-        y      = 22
+        y      = 30
         width  = 24
         height = 2
         properties = {
@@ -419,7 +464,7 @@ resource "aws_cloudwatch_dashboard" "main" {
       {
         type   = "metric"
         x      = 0
-        y      = 24
+        y      = 32
         width  = 12
         height = 6
         properties = {
@@ -440,7 +485,7 @@ resource "aws_cloudwatch_dashboard" "main" {
       {
         type   = "metric"
         x      = 12
-        y      = 24
+        y      = 32
         width  = 12
         height = 6
         properties = {
@@ -459,11 +504,11 @@ resource "aws_cloudwatch_dashboard" "main" {
         }
       },
 
-      # SECTION 5: SYSTEM ALARMS & HEALTH ALERTS
+      # SECTION 6: SYSTEM ALARMS & HEALTH ALERTS
       {
         type   = "text"
         x      = 0
-        y      = 30
+        y      = 38
         width  = 24
         height = 2
         properties = {
@@ -473,7 +518,7 @@ resource "aws_cloudwatch_dashboard" "main" {
       {
         type   = "alarm"
         x      = 0
-        y      = 32
+        y      = 40
         width  = 24
         height = 6
         properties = {
