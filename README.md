@@ -44,77 +44,64 @@ It includes:
 
 ## Architecture Diagram
 ```mermaid
-flowchart TB
-    %% Definitions of Subgraphs for structured categorization
-    subgraph Client_Layer ["Client & CDN Layer"]
-        U["User Browser (https)"]
-        CF["CloudFront Distribution (CDN)"]
-    end
+flowchart TD
 
-    subgraph Static_Hosting ["Frontend Hosting"]
-        S3_FE["S3 Bucket (Static Assets)"]
-    end
+    %% User
+    U[User Browser]
 
-    subgraph Gateway_Layer ["API & Orchestration Tier"]
-        APIGW["API Gateway (HTTP API) <br/> <b>Default Throttling: 100 rps / 200 burst</b>"]
-        BFF["harish-tf-bff (BFF Lambda) <br/> <i>Parallel Aggregator via ThreadPoolExecutor</i>"]
-    end
+    %% Frontend & CDN
+    CF["CloudFront CDN (HTTPS)"]
+    FE["S3 Static Website"]
 
-    subgraph Microservices_Layer ["Serverless Microservices (Python 3.12)"]
-        L_Product["harish-tf-product (Lambda) <br/> <i>Product Catalog & Reviews</i>"]
-        L_Cart["harish-tf-cart (Lambda) <br/> <i>Shopping Carts Operations</i>"]
-        L_Order["harish-tf-order (Lambda) <br/> <i>Order Creation & Rollbacks</i>"]
-        L_Monitor["harish-tf-monitor (Lambda) <br/> <i>Availability Sentinel</i>"]
-    end
+    %% API Gateway
+    APIGW[API Gateway HTTP API]
 
-    subgraph Storage_Layer ["Data Tier (DynamoDB)"]
-        DB_Products["harish-tf-products <br/> <i>(Hash Key: product_id)</i>"]
-        DB_Carts["harish-tf-carts <br/> <i>(Hash Key: user_id)</i>"]
-        DB_Orders["harish-tf-orders <br/> <i>(Hash Key: order_id) <br/> GSI: user_id-index</i>"]
-    end
+    %% Lambda Services
+    BFF["harish-tf-bff (BFF Lambda)"]
+    P["harish-tf-product (Lambda)"]
+    C["harish-tf-cart (Lambda)"]
+    O["harish-tf-order (Lambda)"]
+    M["harish-tf-monitoring (Lambda)"]
 
-    subgraph Observability_Layer ["Observability & Alerts"]
-        CW_Dash["CloudWatch Dashboard & Metric Alarms"]
-        XRAY["AWS X-Ray <br/> <i>Active Tracing (10% Sample)</i>"]
-        R53_HC["Route 53 Health Check"]
-        SNS["SNS Alarm Topic"]
-        EMAIL["Email Notifications"]
-    end
+    %% Database
+    D1[(DynamoDB - Products Table)]
+    D2[(DynamoDB - Carts Table)]
+    D3[(DynamoDB - Orders Table)]
 
-    %% Client / CDN Traffic Flow
-    U -->|1. Requests Site| CF
-    CF -->|2. Pulls Files| S3_FE
-    U -->|3. API Operations| APIGW
+    %% Monitoring
+    R53[Route 53 Health Check]
+    SNS[SNS Topic]
+    ALERT[Email Alerts]
+    CW[CloudWatch Alarms & Dashboard]
+    XRAY[AWS X-Ray Tracing]
 
-    %% Gateway Routing
-    APIGW -->|GET /v1/bff/dashboard| BFF
-    APIGW -->|/v1/products| L_Product
-    APIGW -->|/v1/cart| L_Cart
-    APIGW -->|/v1/orders| L_Order
+    %% Flow
+    U --> CF
+    CF --> FE
+    U --> APIGW
+    APIGW --> BFF
+    APIGW --> P
+    APIGW --> C
+    APIGW --> O
 
-    %% BFF Concurrency calls (Parallel reads)
-    BFF -.->|Concurrently Reads Carts| DB_Carts
-    BFF -.->|Concurrently Queries user_id-index GSI| DB_Orders
-    BFF -.->|Concurrently Scans Products Limit 3| DB_Products
+    %% BFF Parallel Orchestration
+    BFF -.-> D1
+    BFF -.-> D2
+    BFF -.-> D3
 
-    %% Service to Storage Connections
-    L_Product -->|Reads/Writes Catalog| DB_Products
-    L_Cart -->|Reads/Writes Cart Items| DB_Carts
-    L_Order -->|Conditional Write / Idempotency Check| DB_Orders
-    L_Order -->|Atomic Stock Reservation & Rollback| DB_Products
+    P --> D1
+    C --> D2
+    O --> D3
+
+    %% Monitoring Flow
+    R53 --> CF
+    R53 --> SNS
+    SNS --> ALERT
+    M --> SNS
     
-    %% Cart Cleanup after Order Creation
-    L_Order -->|Deletes Cart on Success| DB_Carts
-
-    %% Monitoring, Metrics, & Alarms
-    R53_HC -->|Probes CDN Endpoint| CF
-    R53_HC -->|Triggers Alert on Downtime| SNS
-    L_Monitor -->|Synthetically Checks CDN Availability| SNS
-    SNS -->|Dispatches Alerts| EMAIL
-
-    %% Metrics emission
-    L_Product & L_Cart & L_Order & BFF -.->|Emits Logs & Custom Metrics| CW_Dash
-    APIGW & BFF & L_Product & L_Cart & L_Order -.->|Pushes Segments| XRAY
+    %% Alarms & Tracing
+    P & C & O & BFF & APIGW --> XRAY
+    P & C & O & BFF & APIGW --> CW
 ```
 
 ### Architecture Summary
